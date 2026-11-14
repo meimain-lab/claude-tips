@@ -135,6 +135,7 @@ swift test --package-path menubar
 
 - 侧边面板的代码在 `pane/hooks/`，状态类型在 `pane/types/index.d.ts`，测试在 `pane/tests/`。
 - 菜单栏应用是一个 Swift package：`TipsCore`（模型、读取、合并、搜索、skill 扫描，不含界面）和 `ClaudeTipsMenuBar`（AppKit 外壳和 SwiftUI 界面）。测试用 Swift Testing，只装 Command Line Tools 也能跑。
+- 应用图标的源图是 `menubar/Resources/app-icon-source.png`；`scripts/make-app-icon.sh` 把它套上 macOS 圆角网格并生成 `AppIcon.icns`，打包脚本每次都会重新生成，换图后重新打包即可。
 - `menubar/.build/debug/ClaudeTipsMenuBar --snapshot <文件夹>` 会把浮层的几种状态在浅色和深色下各渲染成一张 PNG，不用打开菜单栏就能检查样式。
 
 ## 卸载

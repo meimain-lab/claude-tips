@@ -19,6 +19,8 @@ mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 cp "$binary" "$app_dir/Contents/MacOS/ClaudeTipsMenuBar"
 # Bundled fallback copy, used when ~/.claude/claude-tips/tips.json is missing.
 cp "$repo_dir/content/tips.json" "$app_dir/Contents/Resources/tips.json"
+# App icon for Finder, Login Items and permission dialogs; the menu bar keeps its SF Symbol.
+"$repo_dir/scripts/make-app-icon.sh" "$app_dir/Contents/Resources/AppIcon.icns"
 
 cat > "$app_dir/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -27,6 +29,7 @@ cat > "$app_dir/Contents/Info.plist" <<PLIST
 <dict>
   <key>CFBundleDevelopmentRegion</key><string>zh-Hans</string>
   <key>CFBundleExecutable</key><string>ClaudeTipsMenuBar</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleIdentifier</key><string>io.github.claude-tips.menubar</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
   <key>CFBundleName</key><string>Claude Tips</string>
