@@ -4,6 +4,11 @@
 Uses only the Python standard library. Exit status 0 when the file is valid,
 1 when any problem is found, 2 when the file cannot be read or parsed.
 
+Each tip carries its Chinese title and detail at the top level and the
+English ones under "en": { "title", "detail" }. The public file needs "en"
+on every tip and group; in a tips.local.json it is optional, and a tip
+without it shows its Chinese text in the English view.
+
 Usage:
     scripts/validate-tips.py [path ...]
     scripts/validate-tips.py --local ~/.claude/claude-tips/tips.local.json
@@ -99,9 +104,35 @@ def validate_tip(tip, index, local):
             if not is_non_empty_string(source.get("name")):
                 problems.append(f"{label}: source.name must be a non-empty string")
 
+    problems.extend(validate_english(tip, label, required=not local))
+
     if "hidden" in tip and not isinstance(tip.get("hidden"), bool):
         problems.append(f"{label}: hidden must be true or false")
 
+    return problems
+
+
+def validate_english(entry, label, required, fields=("title", "detail")):
+    """Check an entry's "en" object: English title (one line) and detail, no Chinese."""
+    if "en" not in entry:
+        return [f"{label}: missing required field 'en'"] if required else []
+    english = entry["en"]
+    if not isinstance(english, dict):
+        return [f"{label}: en must be an object with {', '.join(fields)}"]
+    problems = []
+    for field in fields:
+        value = english.get(field)
+        if field not in english:
+            problems.append(f"{label}: en is missing '{field}'")
+        elif not is_non_empty_string(value):
+            problems.append(f"{label}: en.{field} must be a non-empty string")
+        elif CJK_PATTERN.search(value):
+            problems.append(f"{label}: en.{field} must be English (found Chinese text)")
+        elif field == "title" and "\n" in value:
+            problems.append(f"{label}: en.title must be a single line")
+    unknown = sorted(set(english) - set(fields))
+    if unknown:
+        problems.append(f"{label}: en has unknown field(s) {unknown}")
     return problems
 
 
@@ -123,6 +154,10 @@ def validate_document(data, local):
             group_ids = [g.get("id") for g in groups if isinstance(g, dict)]
             if set(group_ids) != VALID_GROUPS:
                 problems.append(f"groups must define exactly {sorted(VALID_GROUPS)}")
+            for index, group in enumerate(groups):
+                if isinstance(group, dict):
+                    label = f"groups[{index}] ({group.get('id')})"
+                    problems.extend(validate_english(group, label, required=True, fields=("title",)))
 
     seen = {}
     for index, tip in enumerate(tips):

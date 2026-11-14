@@ -266,3 +266,48 @@ private func json(_ object: Any) -> Data {
         #expect(state.firstRowBelow == 6)
     }
 }
+
+@Suite struct LanguageTests {
+    @Test func parsesEnglishTitleAndDetail() {
+        let parsed = parseTipsFile(json(["version": 1, "tips": [
+            ["id": "with-en", "group": "say", "title": "有英文", "copy": "Go.", "detail": "中文详情。",
+             "en": ["title": "Has English", "detail": "English detail."]],
+            ["id": "without-en", "group": "say", "title": "没有英文", "copy": "Go."],
+            ["id": "bad-en", "group": "say", "title": "英文不对", "copy": "Go.", "en": "not an object"],
+        ]]))
+        #expect(parsed.skipped == 0)
+        #expect(parsed.tips.map(\.titleEn) == ["Has English", "", ""])
+        #expect(parsed.tips.map(\.detailEn) == ["English detail.", "", ""])
+    }
+
+    @Test func englishFallsBackToChinesePerField() {
+        let both = Tip(id: "both", group: .say, title: "中文标题", copy: "Go.", detail: "中文详情",
+                       titleEn: "English title", detailEn: "English detail")
+        let titleOnly = Tip(id: "title-only", group: .say, title: "只有标题", copy: "Go.", detail: "中文详情",
+                            titleEn: "Title only")
+        let none = Tip(id: "none", group: .say, title: "没有英文", copy: "Go.", detail: "中文详情")
+        #expect(both.localized(.en).title == "English title")
+        #expect(both.localized(.en).detail == "English detail")
+        #expect(titleOnly.localized(.en).title == "Title only")
+        #expect(titleOnly.localized(.en).detail == "中文详情")
+        #expect(none.localized(.en) == none)
+        #expect(both.localized(.zh).title == "中文标题")
+        #expect(both.localized(.en).copy == "Go.")
+    }
+
+    @Test func searchInEitherLanguageFindsTheRowInBothViews() {
+        let tips = [Tip(id: "chart", group: .say, title: "把数据画成图", copy: "Go.", titleEn: "Turn data into a chart")]
+        for language in TipLanguage.allCases {
+            let shown = tips.map { $0.localized(language) }
+            #expect(searchTips(shown, query: "画成图").map(\.id) == ["chart"])
+            #expect(searchTips(shown, query: "into a chart").map(\.id) == ["chart"])
+        }
+    }
+
+    @Test func groupTitlesAndNoticesFollowTheLanguage() {
+        #expect(TipGroup.say.title(in: .en) == "Just say it")
+        #expect(TipGroup.say.title == "直接说")
+        #expect(TipNotice.skipped(1).text(in: .en) == "Skipped 1 entry with missing fields")
+        #expect(TipNotice.skipped(3).text(in: .zh) == "跳过 3 条字段不全的条目")
+    }
+}

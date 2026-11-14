@@ -2,6 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import {
   buildRows,
+  localizeRow,
   mergeTips,
   parseTipsFile,
   readFrontmatter,
@@ -16,6 +17,8 @@ const tip = (id: string, extra: Partial<Tip> = {}): Tip => ({
   title: `标题 ${id}`,
   copy: `copy ${id}`,
   detail: '',
+  titleEn: '',
+  detailEn: '',
   keywords: [],
   icon: '',
   sourceKind: 'builtin-skill',
@@ -176,5 +179,53 @@ describe('icons', () => {
     expect(firstSentence('先做这个。再做那个。')).toBe('先做这个。')
     expect(firstSentence('No full stop\nat all')).toBe('No full stop at all')
     expect(firstSentence('Version 2.1 works. Next.')).toBe('Version 2.1 works.')
+  })
+})
+
+describe('English text', () => {
+  test('parseTipsFile reads en.title and en.detail, and leaves them empty when absent', async () => {
+    const text = JSON.stringify({
+      version: 1,
+      tips: [
+        {
+          id: 'with-en',
+          group: 'say',
+          title: '有英文',
+          copy: 'Go.',
+          detail: '中文详情。',
+          en: { title: 'Has English', detail: 'English detail.' },
+        },
+        { id: 'without-en', group: 'say', title: '没有英文', copy: 'Go.' },
+        { id: 'bad-en', group: 'say', title: '英文不对', copy: 'Go.', en: 'not an object' },
+      ],
+    })
+    const parsed = parseTipsFile(text)
+    expect(parsed.skipped).toBe(0)
+    expect(parsed.tips.map(one => [one.titleEn, one.detailEn])).toEqual([
+      ['Has English', 'English detail.'],
+      ['', ''],
+      ['', ''],
+    ])
+  })
+
+  test('localizeRow shows English where it exists and falls back to Chinese', async () => {
+    const both = tip('both', { title: '中文标题', detail: '中文详情', titleEn: 'English title', detailEn: 'English detail' })
+    const titleOnly = tip('title-only', { title: '只有标题', detail: '中文详情', titleEn: 'Title only' })
+    const none = tip('none', { title: '没有英文', detail: '中文详情' })
+    expect(localizeRow(both, 'en')).toMatchObject({ title: 'English title', detail: 'English detail' })
+    expect(localizeRow(titleOnly, 'en')).toMatchObject({ title: 'Title only', detail: '中文详情' })
+    expect(localizeRow(none, 'en')).toMatchObject({ title: '没有英文', detail: '中文详情' })
+    expect(localizeRow(both, 'zh')).toMatchObject({ title: '中文标题', detail: '中文详情' })
+  })
+
+  test('a search in either language finds the row in both views', async () => {
+    const rows = [tip('chart', { title: '把数据画成图', titleEn: 'Turn data into a chart' })]
+    for (const view of ['zh', 'en'] as const) {
+      const shown = rows.map(row => localizeRow(row, view))
+      expect(searchRows(shown, '画成图').map(row => row.id)).toEqual(['chart'])
+      expect(searchRows(shown, 'into a chart').map(row => row.id)).toEqual(['chart'])
+    }
+    // The shown title ranks first: in English an English prefix is a title hit.
+    expect(searchRows([localizeRow(rows[0]!, 'en')], 'turn')[0]?.title).toBe('Turn data into a chart')
   })
 })

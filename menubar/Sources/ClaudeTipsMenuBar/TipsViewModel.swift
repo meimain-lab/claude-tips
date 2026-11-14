@@ -7,10 +7,21 @@ enum Segment: Hashable {
     case group(TipGroup)
     case unsorted
 
-    var title: String {
+    func title(in language: TipLanguage) -> String {
         switch self {
-        case .group(let group): return group.title
-        case .unsorted: return "未整理"
+        case .group(let group): return group.title(in: language)
+        case .unsorted: return UIText.of(language).unsorted
+        }
+    }
+
+    /// The segment bar holds four labels in 360 pt, so English uses shorter
+    /// ones there; the full group names fit everywhere else.
+    func barTitle(in language: TipLanguage) -> String {
+        switch (self, language) {
+        case (.group(.say), .en): return "Say it"
+        case (.group(.slash), .en): return "Slash"
+        case (.unsorted, .en): return "Other"
+        default: return title(in: language)
         }
     }
 
@@ -26,6 +37,7 @@ enum Segment: Hashable {
 enum KeyCommand {
     case up, down, enter, right, left, escape
     case segment(Int)
+    case toggleLanguage
 }
 
 /// What the shell should do after a key or a click.
@@ -45,6 +57,8 @@ final class TipsViewModel: ObservableObject {
     @Published var segment: Segment = .group(.say)
     @Published var selectedIndex = 0
     @Published var detailTip: Tip?
+    /// The chosen view; remembered across launches when the model has defaults.
+    @Published private(set) var language: TipLanguage
     /// The id of the row showing 已复制 right now.
     @Published private(set) var copiedId: String?
     /// Bumped on every open so the search field takes focus again.
@@ -54,9 +68,31 @@ final class TipsViewModel: ObservableObject {
     var onCopied: (() -> Void)?
 
     private let locations: TipsLocations
+    private let defaults: UserDefaults?
+    static let languageKey = "language"
 
-    init(locations: TipsLocations) {
+    /// `defaults` nil keeps the language for this run only (the snapshot tool uses that).
+    init(locations: TipsLocations, defaults: UserDefaults? = .standard) {
         self.locations = locations
+        self.defaults = defaults
+        let saved = defaults?.string(forKey: Self.languageKey).flatMap(TipLanguage.init(rawValue:))
+        self.language = saved ?? .zh
+    }
+
+    var text: UIText { UIText.of(language) }
+
+    /// Switches the view and remembers it; an open detail redraws in the new language.
+    func setLanguage(_ newLanguage: TipLanguage) {
+        guard newLanguage != language else { return }
+        language = newLanguage
+        defaults?.set(newLanguage.rawValue, forKey: Self.languageKey)
+        if let shown = detailTip {
+            detailTip = (library.tips + library.unsorted).first { $0.id == shown.id }?.localized(newLanguage)
+        }
+    }
+
+    func toggleLanguage() {
+        setLanguage(language == .zh ? .en : .zh)
     }
 
     var segments: [Segment] {
@@ -74,16 +110,18 @@ final class TipsViewModel: ObservableObject {
     }
 
     private func tips(in segment: Segment) -> [Tip] {
+        let rows: [Tip]
         switch segment {
-        case .group(let group): return library.tips(in: group)
-        case .unsorted: return library.unsorted
+        case .group(let group): rows = library.tips(in: group)
+        case .unsorted: rows = library.unsorted
         }
+        return rows.map { $0.localized(language) }
     }
 
     /// The rows the list shows: search results across all groups, or the current segment.
     var visibleTips: [Tip] {
         if isSearching {
-            return searchTips(library.tips + library.unsorted, query: query)
+            return searchTips((library.tips + library.unsorted).map { $0.localized(language) }, query: query)
         }
         return tips(in: segment)
     }
@@ -144,6 +182,9 @@ final class TipsViewModel: ObservableObject {
             let all = segments
             guard all.indices.contains(number - 1) else { return .handled }
             select(segment: all[number - 1])
+            return .handled
+        case .toggleLanguage:
+            toggleLanguage()
             return .handled
         }
     }

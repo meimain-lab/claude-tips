@@ -1,9 +1,9 @@
 {
   "version": 1,
   "groups": [
-    { "id": "say", "title": "直接说", "icon": "bubble.left" },
-    { "id": "slash", "title": "斜杠命令", "icon": "terminal" },
-    { "id": "mine", "title": "我的", "icon": "star" }
+    { "id": "say", "title": "直接说", "icon": "bubble.left", "en": { "title": "Just say it" } },
+    { "id": "slash", "title": "斜杠命令", "icon": "terminal", "en": { "title": "Slash commands" } },
+    { "id": "mine", "title": "我的", "icon": "star", "en": { "title": "Mine" } }
   ],
   "tips": [
     {
@@ -12,6 +12,10 @@
       "title": "把数据画成图，自动套图表规范",
       "copy": "Turn this data into a chart.",
       "detail": "只要提到画图，Claude 会先读一套图表配色和排版规范再动手，图在浅色和深色下都好看。不用记功能名，直接说要什么图。",
+      "en": {
+        "title": "Turn data into a chart, styled automatically",
+        "detail": "Mention a chart and Claude first reads a set of chart color and layout rules before drawing, so the chart looks good in both light and dark mode. No feature names to remember: just say what chart you want."
+      },
       "keywords": ["画图", "图表", "可视化", "柱状图", "折线图", "chart", "graph", "plot", "dataviz"],
       "icon": "chart.bar",
       "source": { "kind": "builtin-skill", "name": "dataviz" }
@@ -22,6 +26,10 @@
       "title": "立一条长期自动执行的规矩",
       "copy": "From now on, run the tests every time you edit code.",
       "detail": "说出想长期生效的规矩，Claude 会把它写进设置，之后由程序自动执行，不靠记性。把例句里的动作换成你自己的。",
+      "en": {
+        "title": "Set a rule that runs automatically from now on",
+        "detail": "Say the rule you want to stick, and Claude writes it into your settings so a program enforces it from then on, not memory. Swap the action in the example for your own."
+      },
       "keywords": ["以后每次", "自动", "规矩", "规则", "权限", "hook", "from now on", "whenever", "settings"],
       "icon": "arrow.triangle.2.circlepath",
       "source": { "kind": "builtin-skill", "name": "update-config" }
@@ -32,6 +40,10 @@
       "title": "启动项目，实际操作一遍来验证",
       "copy": "Run the app and show me it works.",
       "detail": "Claude 会把项目真正跑起来并操作一遍，而不是只跑测试。适合改完界面或功能后想亲眼确认的时候。",
+      "en": {
+        "title": "Start the project and try it for real",
+        "detail": "Claude actually runs the project and clicks through it instead of only running the tests. Good after a UI or feature change you want to see working with your own eyes."
+      },
       "keywords": ["运行", "启动", "跑起来", "验证", "截图", "run", "start", "launch", "verify"],
       "icon": "play",
       "source": { "kind": "builtin-skill", "name": "run" }
@@ -42,6 +54,10 @@
       "title": "做成可分享的私有网页",
       "copy": "Make this a web page and give me a link to share.",
       "detail": "Claude 会把结果发布成一个网页并给你链接。默认只有你能看，要分享时再自己打开权限。",
+      "en": {
+        "title": "Turn it into a private, shareable web page",
+        "detail": "Claude publishes the result as a web page and gives you the link. Only you can see it by default; open up access yourself when you want to share it."
+      },
       "keywords": ["网页", "链接", "分享", "发布", "报告", "artifact", "web page", "link", "share"],
       "icon": "link",
       "source": { "kind": "builtin-tool", "name": "Artifact" }
@@ -52,6 +68,10 @@
       "title": "找现成的 skill 或插件",
       "copy": "Is there a skill or plugin that already does this?",
       "detail": "Claude 会在可安装的 skill 和插件里找适合当前任务的，并给出安装卡片。适合觉得“这事应该有现成工具”的时候。",
+      "en": {
+        "title": "Find an existing skill or plugin",
+        "detail": "Claude searches the skills and plugins you can install for one that fits the task and shows you an install card. Good when you suspect there's already a tool for this."
+      },
       "keywords": ["技能", "插件", "推荐", "安装", "现成", "skill", "plugin", "recommend", "install"],
       "icon": "puzzlepiece",
       "source": { "kind": "builtin-tool", "name": "SuggestSkills" }
@@ -62,6 +82,10 @@
       "title": "找出当前改动里的 bug",
       "copy": "/code-review",
       "detail": "检查当前还没提交的改动，列出可能的 bug。后面可以跟力度，比如 /code-review high。",
+      "en": {
+        "title": "Find bugs in your current changes",
+        "detail": "Checks your uncommitted changes and lists likely bugs. You can add an effort level, like /code-review high."
+      },
       "keywords": ["审查", "检查", "代码", "bug", "review", "diff"],
       "icon": "ladybug",
       "source": { "kind": "builtin-skill", "name": "code-review" }
@@ -72,6 +96,10 @@
       "title": "把改过的代码整理简洁",
       "copy": "/simplify",
       "detail": "只管代码质量：去重复、简化、提效率，并直接改好。它不找 bug，找 bug 用 /code-review。",
+      "en": {
+        "title": "Clean up and simplify the code you changed",
+        "detail": "Only about code quality: removes duplication, simplifies, speeds things up, and applies the fixes. It doesn't hunt for bugs; use /code-review for that."
+      },
       "keywords": ["整理", "简化", "重构", "清理", "simplify", "cleanup", "refactor"],
       "icon": "wand.and.stars",
       "source": { "kind": "builtin-skill", "name": "simplify" }
@@ -82,6 +110,10 @@
       "title": "检查当前改动的安全问题",
       "copy": "/security-review",
       "detail": "对当前分支上还没合并的改动做一次安全检查，适合提交或发布之前。",
+      "en": {
+        "title": "Check your current changes for security issues",
+        "detail": "Runs a security review of the unmerged changes on the current branch. Good before you commit or ship."
+      },
       "keywords": ["安全", "漏洞", "检查", "security", "vulnerability"],
       "icon": "checkmark.shield",
       "source": { "kind": "builtin-skill", "name": "security-review" }
@@ -92,6 +124,10 @@
       "title": "少弹确认框：常用只读命令加白名单",
       "copy": "/fewer-permission-prompts",
       "detail": "扫描你过去的对话，把经常被问“是否允许”的只读命令整理成白名单，写进当前项目的 .claude/settings.json，以后在这个项目里不再反复确认。",
+      "en": {
+        "title": "Fewer permission prompts: allowlist common read-only commands",
+        "detail": "Scans your past conversations, collects the read-only commands you keep being asked to allow, and writes them as an allowlist into this project's .claude/settings.json, so you stop confirming them in this project."
+      },
       "keywords": ["权限", "确认", "弹窗", "白名单", "允许", "permission", "allowlist", "prompt"],
       "icon": "lock.open",
       "source": { "kind": "builtin-skill", "name": "fewer-permission-prompts" }
@@ -102,6 +138,10 @@
       "title": "每 5 分钟重复一条指令",
       "copy": "/loop 5m check the deploy status",
       "detail": "按固定间隔重复执行后面的指令。把 5m 换成你要的间隔，把后面的话换成要重复做的事。",
+      "en": {
+        "title": "Repeat an instruction every 5 minutes",
+        "detail": "Runs the instruction after it on a fixed interval. Change 5m to the interval you want, and the rest to whatever should repeat."
+      },
       "keywords": ["重复", "定时", "循环", "轮询", "每隔", "loop", "repeat", "interval", "poll"],
       "icon": "repeat",
       "source": { "kind": "builtin-skill", "name": "loop" }
@@ -112,6 +152,10 @@
       "title": "定时在云端自动跑任务",
       "copy": "/schedule",
       "detail": "创建一个按时间表在云端运行的任务，电脑关着也会跑。比如每天早上九点整理一次。",
+      "en": {
+        "title": "Run a task in the cloud on a schedule",
+        "detail": "Creates a task that runs in the cloud on a schedule, even when your computer is off. For example, a roundup every morning at 9."
+      },
       "keywords": ["定时", "计划", "每天", "云端", "提醒", "schedule", "cron", "routine"],
       "icon": "calendar.badge.clock",
       "source": { "kind": "builtin-skill", "name": "schedule" }
@@ -122,6 +166,10 @@
       "title": "为项目生成 CLAUDE.md 说明文件",
       "copy": "/init",
       "detail": "让 Claude 读一遍项目，写出一份说明文件。以后每次在这个项目里开新对话，Claude 都会先读它。",
+      "en": {
+        "title": "Generate a CLAUDE.md guide for the project",
+        "detail": "Claude reads through the project and writes a guide file. Every new conversation in this project reads it first."
+      },
       "keywords": ["初始化", "说明", "项目", "文档", "init", "CLAUDE.md"],
       "icon": "doc.text",
       "source": { "kind": "builtin-skill", "name": "init" }
@@ -132,6 +180,10 @@
       "title": "对话太长时压缩成摘要接着聊",
       "copy": "/compact",
       "detail": "把前面的对话压缩成摘要，腾出空间继续做。适合对话很长、Claude 开始变慢或忘事的时候。",
+      "en": {
+        "title": "Compress a long conversation into a summary and keep going",
+        "detail": "Compresses the conversation so far into a summary to free up room. Good when a conversation is long and Claude starts slowing down or forgetting things."
+      },
       "keywords": ["压缩", "摘要", "太长", "上下文", "compact", "summarize", "context"],
       "icon": "arrow.down.right.and.arrow.up.left",
       "source": { "kind": "builtin-command", "name": "compact" }

@@ -7,6 +7,10 @@
       "title": "用一句中文说清这个 skill 能帮你做什么",
       "copy": "/my-example-skill",
       "detail": "把这个文件复制到 ~/.claude/claude-tips/tips.local.json，再换成你自己的 skill。这个文件只在你的电脑上，不会进仓库。",
+      "en": {
+        "title": "Say in one line what this skill does for you",
+        "detail": "Optional: the English view shows these two lines. Leave out \"en\" and that view shows the Chinese text instead."
+      },
       "keywords": ["示例", "example"],
       "icon": "star",
       "source": { "kind": "user-skill", "name": "my-example-skill" }

@@ -11,13 +11,14 @@ enum Snapshot {
     static func run(into directory: URL) {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let bundled = Bundle.main.url(forResource: "tips", withExtension: "json")
-        let model = TipsViewModel(locations: .standard(home: home, bundledTips: bundled))
+        // No defaults: the snapshot never reads or changes the saved language.
+        let model = TipsViewModel(locations: .standard(home: home, bundledTips: bundled), defaults: nil)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
         // Each state: name, setup before the first layout, and a change applied
         // after it (so onChange handlers such as scrolling run as in the app).
         let states: [(String, (TipsViewModel) -> Void, ((TipsViewModel) -> Void)?)] = [
-            ("list", { $0.reload() }, nil),
+            ("list", { $0.setLanguage(.zh); $0.reload() }, nil),
             ("slash", { $0.reload(); _ = $0.handle(.segment(2)); _ = $0.handle(.down) }, nil),
             ("overflow-top", { $0.reload(); _ = $0.handle(.segment(2)) }, nil),
             ("overflow-bottom", { $0.reload(); _ = $0.handle(.segment(2)) }, { model in
@@ -26,6 +27,9 @@ enum Snapshot {
             ("search", { $0.reload(); $0.query = "图" }, nil),
             ("no-results", { $0.reload(); $0.query = "zzzz" }, nil),
             ("detail", { $0.reload(); _ = $0.handle(.right) }, nil),
+            ("list-en", { $0.setLanguage(.en); $0.reload() }, nil),
+            ("search-en", { $0.reload(); $0.query = "chart" }, nil),
+            ("detail-en", { $0.reload(); _ = $0.handle(.right) }, nil),
         ]
         for (name, configure, change) in states {
             for (scheme, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {

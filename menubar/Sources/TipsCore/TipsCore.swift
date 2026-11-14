@@ -1,14 +1,33 @@
 import Foundation
 
+/// The popover's two views: Chinese explanations, or everything in English.
+/// The text that gets copied is English in both.
+public enum TipLanguage: String, CaseIterable, Sendable {
+    case zh, en
+
+    /// The switch label, written in its own language.
+    public var label: String {
+        switch self {
+        case .zh: return "中文"
+        case .en: return "EN"
+        }
+    }
+}
+
 /// The three fixed groups of the content file, in display order.
 public enum TipGroup: String, CaseIterable, Sendable {
     case say, slash, mine
 
-    public var title: String {
-        switch self {
-        case .say: return "直接说"
-        case .slash: return "斜杠命令"
-        case .mine: return "我的"
+    public var title: String { title(in: .zh) }
+
+    public func title(in language: TipLanguage) -> String {
+        switch (self, language) {
+        case (.say, .zh): return "直接说"
+        case (.slash, .zh): return "斜杠命令"
+        case (.mine, .zh): return "我的"
+        case (.say, .en): return "Just say it"
+        case (.slash, .en): return "Slash commands"
+        case (.mine, .en): return "Mine"
         }
     }
 
@@ -29,6 +48,9 @@ public struct Tip: Equatable, Identifiable, Sendable {
     public var title: String
     public var copy: String
     public var detail: String
+    /// English title and detail from the entry's `en` object; empty when it has none.
+    public var titleEn: String
+    public var detailEn: String
     public var keywords: [String]
     public var icon: String
     public var sourceKind: String
@@ -40,7 +62,7 @@ public struct Tip: Equatable, Identifiable, Sendable {
 
     public init(
         id: String, group: TipGroup, title: String, copy: String, detail: String = "",
-        keywords: [String] = [], icon: String = "", sourceKind: String = "", sourceName: String = "",
+        titleEn: String = "", detailEn: String = "", keywords: [String] = [], icon: String = "", sourceKind: String = "", sourceName: String = "",
         isMissing: Bool = false, isUnsorted: Bool = false
     ) {
         self.id = id
@@ -48,12 +70,54 @@ public struct Tip: Equatable, Identifiable, Sendable {
         self.title = title
         self.copy = copy
         self.detail = detail
+        self.titleEn = titleEn
+        self.detailEn = detailEn
         self.keywords = keywords
         self.icon = icon
         self.sourceKind = sourceKind
         self.sourceName = sourceName
         self.isMissing = isMissing
         self.isUnsorted = isUnsorted
+    }
+}
+
+extension Tip {
+    /// The tip as drawn in one language: English shows `en` text where the
+    /// entry has it and falls back to the Chinese otherwise. The other
+    /// language's title joins the keywords, so a search in either still finds it.
+    public func localized(_ language: TipLanguage) -> Tip {
+        var shown = self
+        guard !titleEn.isEmpty || !detailEn.isEmpty else { return shown }
+        switch language {
+        case .en:
+            if !titleEn.isEmpty {
+                shown.title = titleEn
+                shown.keywords.append(title)
+            }
+            if !detailEn.isEmpty { shown.detail = detailEn }
+        case .zh:
+            if !titleEn.isEmpty { shown.keywords.append(titleEn) }
+        }
+        return shown
+    }
+}
+
+/// Something skipped while loading, drawn at the bottom in the chosen language.
+public enum TipNotice: Equatable, Sendable {
+    case runtimeBroken
+    case localBroken
+    case skipped(Int)
+
+    public func text(in language: TipLanguage) -> String {
+        switch (self, language) {
+        case (.runtimeBroken, .zh): return "tips.json 无法读取，已改用应用自带的副本"
+        case (.localBroken, .zh): return "tips.local.json 不是有效的 JSON，已忽略"
+        case (.skipped(let count), .zh): return "跳过 \(count) 条字段不全的条目"
+        case (.runtimeBroken, .en): return "tips.json can't be read; using the copy bundled with the app"
+        case (.localBroken, .en): return "tips.local.json is not valid JSON; ignored"
+        case (.skipped(let count), .en):
+            return "Skipped \(count) \(count == 1 ? "entry" : "entries") with missing fields"
+        }
     }
 }
 
@@ -84,9 +148,9 @@ public struct SkillInfo: Equatable, Sendable {
 public struct TipLibrary: Equatable, Sendable {
     public var tips: [Tip]
     public var unsorted: [Tip]
-    public var notices: [String]
+    public var notices: [TipNotice]
 
-    public init(tips: [Tip], unsorted: [Tip], notices: [String]) {
+    public init(tips: [Tip], unsorted: [Tip], notices: [TipNotice]) {
         self.tips = tips
         self.unsorted = unsorted
         self.notices = notices
@@ -115,12 +179,15 @@ public func makeTip(from raw: Any) -> Tip? {
           let group = TipGroup(rawValue: groupName)
     else { return nil }
     let source = entry["source"] as? [String: Any]
+    let english = entry["en"] as? [String: Any]
     return Tip(
         id: id,
         group: group,
         title: title,
         copy: copy,
         detail: text(entry["detail"]) ?? "",
+        titleEn: text(english?["title"]) ?? "",
+        detailEn: text(english?["detail"]) ?? "",
         keywords: (entry["keywords"] as? [Any])?.compactMap { text($0) } ?? [],
         icon: text(entry["icon"]) ?? "",
         sourceKind: text(source?["kind"]) ?? "",
@@ -350,7 +417,7 @@ public struct TipsLocations: Sendable {
 
 /// Reads both content files and the skill folder fresh. Never throws.
 public func loadLibrary(from locations: TipsLocations, fileManager: FileManager = .default) -> TipLibrary {
-    var notices: [String] = []
+    var notices: [TipNotice] = []
     func read(_ url: URL?) -> Data? {
         guard let url else { return nil }
         return fileManager.contents(atPath: url.path)
@@ -358,16 +425,16 @@ public func loadLibrary(from locations: TipsLocations, fileManager: FileManager 
 
     var publicFile = parseTipsFile(read(locations.runtimeDir.appendingPathComponent("tips.json")))
     if publicFile.isBroken || publicFile.isMissing {
-        if publicFile.isBroken { notices.append("tips.json 无法读取，已改用应用自带的副本") }
+        if publicFile.isBroken { notices.append(.runtimeBroken) }
         publicFile = parseTipsFile(read(locations.bundledTips))
     }
     var localFile = parseTipsFile(read(locations.runtimeDir.appendingPathComponent("tips.local.json")))
     if localFile.isBroken {
-        notices.append("tips.local.json 不是有效的 JSON，已忽略")
+        notices.append(.localBroken)
         localFile = ParsedTipsFile()
     }
     let skipped = publicFile.skipped + localFile.skipped
-    if skipped > 0 { notices.append("跳过 \(skipped) 条字段不全的条目") }
+    if skipped > 0 { notices.append(.skipped(skipped)) }
 
     let merged = mergeTips(public: publicFile.tips, local: localFile)
     let scanned = applySkillScan(merged, skills: scanSkills(in: locations.skillsDir, fileManager: fileManager))

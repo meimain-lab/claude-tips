@@ -20,7 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
-            let image = NSImage(systemSymbolName: "lightbulb", accessibilityDescription: "速查")
+            let image = NSImage(systemSymbolName: "lightbulb", accessibilityDescription: model.text.statusItem)
             image?.isTemplate = true
             button.image = image
             button.action = #selector(statusItemClicked(_:))
@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         closePopover()
         let menu = NSMenu()
-        menu.addItem(withTitle: "退出 Claude Tips", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: model.text.quit, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 4), in: button)
     }
 
@@ -112,6 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return true
         } else if flags == .command, let digit = Int(event.charactersIgnoringModifiers ?? ""), (1...4).contains(digit) {
             command = .segment(digit)
+        } else if flags == .command, event.charactersIgnoringModifiers?.lowercased() == "l" {
+            command = .toggleLanguage
         } else if flags.subtracting([.numericPad, .function]).isEmpty {
             switch event.keyCode {
             case 126: command = .up

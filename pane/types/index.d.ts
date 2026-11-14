@@ -1,5 +1,8 @@
 export type GroupId = 'say' | 'slash' | 'mine'
 
+/** The pane's two views: Chinese explanations, or everything in English. */
+export type Language = 'zh' | 'en'
+
 /** One tip as read from a content file. */
 export type Tip = {
   id: string
@@ -7,6 +10,9 @@ export type Tip = {
   title: string
   copy: string
   detail: string
+  /** English title and detail from the entry's `en` object; '' when it has none. */
+  titleEn: string
+  detailEn: string
   keywords: string[]
   icon: string
   sourceKind: string
@@ -20,12 +26,17 @@ export type Row = Tip & { isMissing: boolean }
 export type Library = {
   rows: Row[]
   unsorted: Row[]
-  /** Chinese lines shown at the bottom of the pane when something was skipped. */
-  notices: string[]
+  /** What was skipped while loading, drawn at the bottom in the chosen language. */
+  notices: Notice[]
 }
 
+export type Notice =
+  | { kind: 'runtime-broken' }
+  | { kind: 'local-broken' }
+  | { kind: 'skipped'; count: number }
+
 /** The short status a row shows right after a press. */
-export type Feedback = { id: string; label: '已填入' | '已复制' }
+export type Feedback = { id: string; kind: 'filled' | 'copied' }
 
 declare module 'claude-code' {
   interface PluginState {
@@ -34,6 +45,8 @@ declare module 'claude-code' {
       query: string
       feedback: Shaped<Feedback | null>
       expanded: string | null
+      /** The chosen view for this session; null until read from the store. */
+      language: Language | null
     }
   }
 }

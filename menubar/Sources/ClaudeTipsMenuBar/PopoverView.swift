@@ -23,8 +23,8 @@ struct PopoverView: View {
             }
             if !model.library.notices.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
-                    ForEach(model.library.notices, id: \.self) { line in
-                        Text(line)
+                    ForEach(Array(model.library.notices.enumerated()), id: \.offset) { _, notice in
+                        Text(notice.text(in: model.language))
                     }
                 }
                 .font(.caption)
@@ -36,7 +36,7 @@ struct PopoverView: View {
             Divider()
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
-            KeyHints(isDetail: model.detailTip != nil)
+            KeyHints(isDetail: model.detailTip != nil, text: model.text)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
         }
@@ -53,9 +53,10 @@ private struct SearchField: View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("搜一下：画图、定时、交接", text: $model.query)
+            TextField(model.text.searchPlaceholder, text: $model.query)
                 .textFieldStyle(.plain)
                 .focused($isFocused)
+            LanguageSwitch(model: model)
             Text(hotKeyLabel)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -72,6 +73,29 @@ private struct SearchField: View {
         )
         .onAppear { isFocused = true }
         .onChange(of: model.focusToken) { _ in isFocused = true }
+    }
+}
+
+/// Both choices shown, the current one bright; a click (or ⌘L) switches.
+private struct LanguageSwitch: View {
+    @ObservedObject var model: TipsViewModel
+
+    var body: some View {
+        Button {
+            model.toggleLanguage()
+        } label: {
+            HStack(spacing: 3) {
+                ForEach(TipLanguage.allCases, id: \.self) { choice in
+                    Text(choice.label)
+                        .fontWeight(choice == model.language ? .semibold : .regular)
+                        .foregroundStyle(choice == model.language ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
+                }
+            }
+            .font(.caption)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(model.text.switchLanguage)
     }
 }
 
@@ -92,7 +116,7 @@ private struct SegmentBar: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: segment.symbolName)
-                        Text(segment.title)
+                        Text(segment.barTitle(in: model.language))
                         Text("\(model.count(of: segment))")
                             .foregroundStyle(.secondary)
                     }
@@ -183,7 +207,7 @@ private struct TipList: View {
         let rows = model.visibleTips
         Group {
             if rows.isEmpty {
-                Text(model.isSearching ? "没有找到，换个词试试" : "这一组还没有条目")
+                Text(model.isSearching ? model.text.noResults : model.text.emptyGroup)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 80)
             } else {
@@ -204,6 +228,7 @@ private struct TipList: View {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { index, tip in
                         TipRow(
                             tip: tip,
+                            text: model.text,
                             isSelected: index == model.selectedIndex,
                             isCopied: model.copiedId == tip.id,
                             onCopy: {
@@ -231,7 +256,7 @@ private struct TipList: View {
             .mask(EdgeFadeMask(fadeTop: !overflow.isAtTop, fadeBottom: !overflow.isAtBottom))
             .overlay(alignment: .bottom) {
                 if !overflow.isAtBottom, overflow.rowsBelow > 0 {
-                    MoreRowsPill(count: overflow.rowsBelow) {
+                    MoreRowsPill(count: overflow.rowsBelow, text: model.text) {
                         guard let first = overflow.firstRowBelow, rows.indices.contains(first) else { return }
                         withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(rows[first].id, anchor: .top) }
                     }
@@ -285,12 +310,13 @@ private struct EdgeFadeMask: View {
 /// Neutral hint at the bottom of an overflowing list; a click pages down.
 private struct MoreRowsPill: View {
     let count: Int
+    let text: UIText
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Text("还有 \(count) 条")
+                Text(text.moreRows(count))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
             }
@@ -308,7 +334,7 @@ private struct MoreRowsPill: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .help("向下翻一页")
+        .help(text.pageDown)
     }
 }
 
@@ -322,6 +348,7 @@ func symbolName(for tip: Tip) -> String {
 
 private struct TipRow: View {
     let tip: Tip
+    let text: UIText
     let isSelected: Bool
     let isCopied: Bool
     let onCopy: () -> Void
@@ -346,12 +373,12 @@ private struct TipRow: View {
             }
             Spacer(minLength: 4)
             if isCopied {
-                Text("已复制").font(.callout)
+                Text(text.copied).font(.callout)
             } else if tip.isMissing {
-                Text("已不存在").font(.caption)
+                Text(text.missing).font(.caption)
                     .foregroundStyle(isSelected ? AnyShapeStyle(Color.white.opacity(0.85)) : AnyShapeStyle(.secondary))
             } else if isSelected {
-                Text("↵ 复制").font(.callout)
+                Text(text.enterToCopy).font(.callout)
             }
             Button(action: onDetail) {
                 Image(systemName: "chevron.right")
@@ -361,7 +388,7 @@ private struct TipRow: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(isSelected ? AnyShapeStyle(Color.white.opacity(0.85)) : AnyShapeStyle(.tertiary))
-            .help("详情")
+            .help(text.details)
         }
         .foregroundStyle(isSelected ? AnyShapeStyle(Color.white) : AnyShapeStyle(.primary))
         .opacity(tip.isMissing && !isSelected ? 0.5 : 1)
@@ -386,7 +413,7 @@ private struct DetailView: View {
             Button {
                 model.detailTip = nil
             } label: {
-                Label("返回", systemImage: "chevron.left")
+                Label(model.text.back, systemImage: "chevron.left")
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
@@ -401,7 +428,7 @@ private struct DetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
                 if tip.isMissing {
                     Spacer()
-                    Text("已不存在").font(.caption).foregroundStyle(.secondary)
+                    Text(model.text.missing).font(.caption).foregroundStyle(.secondary)
                 }
             }
             if !tip.detail.isEmpty {
@@ -420,7 +447,7 @@ private struct DetailView: View {
                 Button {
                     model.copy(tip)
                 } label: {
-                    Text(model.copiedId == tip.id ? "已复制" : "复制")
+                    Text(model.copiedId == tip.id ? model.text.copied : model.text.copy)
                         .frame(minWidth: 64)
                 }
                 .buttonStyle(.borderedProminent)
@@ -434,22 +461,23 @@ private struct DetailView: View {
 
 private struct KeyHints: View {
     let isDetail: Bool
+    let text: UIText
 
     var body: some View {
         HStack(spacing: 0) {
             if isDetail {
-                hint(["←"], "返回")
+                hint(["←"], text.back)
                 Spacer()
-                hint(["↵"], "复制")
+                hint(["↵"], text.copy)
             } else {
-                hint(["↑", "↓"], "选择")
+                hint(["↑", "↓"], text.select)
                 Spacer()
-                hint(["↵"], "复制")
+                hint(["↵"], text.copy)
                 Spacer()
-                hint(["→"], "详情")
+                hint(["→"], text.details)
             }
             Spacer()
-            hint(["esc"], "关闭")
+            hint(["esc"], text.close)
         }
         .font(.caption)
         .foregroundStyle(.secondary)

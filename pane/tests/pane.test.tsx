@@ -28,6 +28,7 @@ const PUBLIC = JSON.stringify({
       title: '把数据画成图',
       copy: 'Turn this data into a chart.',
       detail: '画图的详细说明。',
+      en: { title: 'Turn data into a chart', detail: 'How charts work.' },
       keywords: ['图表', 'chart'],
       icon: 'chart.bar',
       source: { kind: 'builtin-skill', name: 'dataviz' },
@@ -38,6 +39,7 @@ const PUBLIC = JSON.stringify({
       title: '对话太长时压缩',
       copy: '/compact',
       detail: '压缩的详细说明。',
+      en: { title: 'Compress a long chat', detail: 'How compacting works.' },
       keywords: ['压缩'],
       icon: 'arrow',
       source: { kind: 'builtin-command', name: 'compact' },
@@ -135,6 +137,17 @@ function engine(on: Parameters<TestBody>[1], files: Files) {
   })
   // Timers never fire in these tests, so a row's status stays up to be read.
   on('clock.after', () => ({ deny: 'timers are held in tests' }))
+}
+
+/** Stands in for the plugin's own store, seeded with what an earlier session saved. */
+function store(on: Parameters<TestBody>[1], seed: Record<string, unknown> = {}) {
+  const values = { ...seed }
+  on('store.get', (_, e) => ({ value: values[e.key] }))
+  on('store.set', (_, e) => {
+    values[e.key] = e.value
+    return { value: undefined }
+  })
+  return values
 }
 
 /** A section header's count, drawn as its own Text right after the title. */
@@ -333,4 +346,116 @@ test('/tips opens the pane, and closes it when open', async ($, on) => {
   expect(open.has('claude-tips')).toBe(true)
   await $.command.run({ ...RUN, command: 'tips', args: '' })
   expect(open.has('claude-tips')).toBe(false)
+})
+
+test('the pane starts in Chinese with the prompt line in English', async ($, on) => {
+  engine(on, defaultFiles())
+  store(on)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ key: 'tip-chart-data' }))?.text).toBe('把数据画成图')
+  expect((await ui.find({ key: 'copy-chart-data' }))?.text).toBe('Turn this data into a chart.')
+  expect(await headerCount(ui, 'say')).toMatch(/直接说/)
+  await ui.unmount()
+})
+
+test('the English view shows English titles, details, groups and labels', async ($, on) => {
+  engine(on, defaultFiles())
+  store(on, { language: 'en' })
+  const fills: string[] = []
+  on('prompt.fill', (_, e) => {
+    fills.push(e.text)
+    return { isFilled: true, draft: e.text, cursor: e.text.length }
+  })
+  for (const surface of ['desktop', 'terminal'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ key: 'tip-chart-data' }))?.text).toBe('Turn data into a chart')
+    expect((await ui.find({ key: 'copy-chart-data' }))?.text).toBe('Turn this data into a chart.')
+    expect(await headerCount(ui, 'say')).toMatch(/Just say it\s*1/)
+    expect(await headerCount(ui, 'slash')).toMatch(/Slash commands\s*1/)
+    expect(await headerCount(ui, 'mine')).toMatch(/Mine\s*2/)
+    expect(await headerCount(ui, 'unsorted')).toMatch(/Unsorted\s*1/)
+    expect(await ui.find({ type: 'Text', text: 'Gone' })).toBeDefined()
+    await ui.press({ key: 'toggle-compact' })
+    expect((await ui.find({ key: 'detail-compact' }))?.text).toBe('How compacting works.')
+    // The open row is session state; close it so the next surface starts closed.
+    await ui.press({ key: 'toggle-compact' })
+    await ui.press({ key: 'tip-chart-data' })
+    expect((await ui.find({ key: 'status-chart-data' }))?.text).toBe('Filled')
+    await ui.unmount()
+  }
+  // The text that goes into the prompt box is the same in both views.
+  expect(fills).toEqual(['Turn this data into a chart.', 'Turn this data into a chart.'])
+})
+
+test('a local tip without en shows its Chinese text in the English view', async ($, on) => {
+  engine(on, defaultFiles())
+  store(on, { language: 'en' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ key: 'tip-kept-skill' }))?.text).toBe('我的技能')
+  await ui.unmount()
+})
+
+test('a search in Chinese still finds rows in the English view, and the reverse', async ($, on) => {
+  engine(on, defaultFiles())
+  const saved = store(on, { language: 'en' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.input({ key: 'search', text: '画成图' })
+  expect(await headerCount(ui, 'results')).toMatch(/Results\s*1/)
+  expect((await ui.find({ key: 'tip-chart-data' }))?.text).toBe('Turn data into a chart')
+  await ui.input({ key: 'search', text: 'nothing like this' })
+  expect(await ui.find({ type: 'Text', text: 'Nothing found. Try another word.' })).toBeDefined()
+  saved.language = 'zh'
+  await ui.unmount()
+  const again = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await again.input({ key: 'search', text: 'compress a long' })
+  expect((await again.find({ key: 'tip-compact' }))?.text).toBe('对话太长时压缩')
+  await again.unmount()
+})
+
+test('the switch changes the view at once and saves the choice', async ($, on) => {
+  engine(on, defaultFiles())
+  const saved = store(on)
+  const titles: string[] = []
+  on('ui.panes', () => ({
+    value: [{ id: 'claude-tips', title: '速查', isShown: true, isFocused: false, isPlaced: true }],
+  }))
+  on('ui.open', (_, e) => {
+    titles.push(e.title ?? '')
+    return { value: { isPlaced: true } }
+  })
+  on('command.register', () => ({ value: { command: 'tips' } }))
+  for (const surface of ['desktop', 'terminal'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    await ui.press({ key: 'lang-en' })
+    expect(saved.language).toBe('en')
+    expect((await ui.find({ key: 'tip-chart-data' }))?.text).toBe('Turn data into a chart')
+    expect(await ui.find({ key: 'search' })).toMatchObject({ props: { placeholder: 'Search: chart, schedule' } })
+    await ui.press({ key: 'lang-zh' })
+    expect(saved.language).toBe('zh')
+    expect((await ui.find({ key: 'tip-chart-data' }))?.text).toBe('把数据画成图')
+    await ui.unmount()
+  }
+  // The open pane is retitled in the chosen language.
+  expect(titles).toEqual(['Tips', '速查', 'Tips', '速查'])
+})
+
+test('/tips is described in the saved language and opens the pane titled in it', async ($, on) => {
+  engine(on, defaultFiles())
+  store(on, { language: 'en' })
+  const registered: { description?: string; argumentHint?: string }[] = []
+  const titles: string[] = []
+  on('command.register', (_, e) => {
+    registered.push({ description: e.description, argumentHint: e.argumentHint })
+    return { value: { command: 'tips' } }
+  })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('ui.panes', () => ({ value: [] }))
+  on('ui.open', (_, e) => {
+    titles.push(e.title ?? '')
+    return { value: { isPlaced: true } }
+  })
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  expect(registered).toEqual([{ description: 'Open or close the tips pane', argumentHint: '[keyword]' }])
+  await $.command.run({ ...RUN, command: 'tips', args: '' })
+  expect(titles).toEqual(['Tips'])
 })

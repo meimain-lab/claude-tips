@@ -1,9 +1,9 @@
 // Pure logic for the claude-tips pane: parsing, merging, searching and the
 // skill scan's frontmatter reader. No engine calls here, so tests can drive it.
 
-import type { GroupId, Row, Tip } from '../types'
+import type { GroupId, Language, Notice, Row, Tip } from '../types'
 
-export type { GroupId, Row, Tip }
+export type { GroupId, Language, Notice, Row, Tip }
 
 export type SkillInfo = { dirName: string; name: string; description: string }
 
@@ -14,11 +14,86 @@ export type ParsedFile = {
   isBroken: boolean
 }
 
-export const GROUPS: readonly { id: GroupId; title: string }[] = [
-  { id: 'say', title: '直接说' },
-  { id: 'slash', title: '斜杠命令' },
-  { id: 'mine', title: '我的' },
-]
+export const GROUP_IDS_IN_ORDER: readonly GroupId[] = ['say', 'slash', 'mine']
+
+export const isLanguage = (value: unknown): value is Language => value === 'zh' || value === 'en'
+
+/** Every word the pane draws itself, in each language. Tip text comes from the content files. */
+export const UI_TEXT = {
+  zh: {
+    paneTitle: '速查',
+    commandDescription: '打开或关闭速查面板',
+    argumentHint: '[关键词]',
+    searchPlaceholder: '搜索：画图、定时',
+    searchSubmit: '搜',
+    results: '搜索结果',
+    noResults: '没有找到，换个词试试',
+    unsorted: '未整理',
+    filled: '已填入',
+    copied: '已复制',
+    missing: '已不存在',
+    openFailed: '速查面板打开失败',
+    groups: { say: '直接说', slash: '斜杠命令', mine: '我的' },
+    notices: {
+      runtimeBroken: 'tips.json 无法读取，已改用面板自带的副本',
+      localBroken: 'tips.local.json 不是有效的 JSON，已忽略',
+      skipped: (count: number) => `跳过 ${count} 条字段不全的条目`,
+    },
+  },
+  en: {
+    paneTitle: 'Tips',
+    commandDescription: 'Open or close the tips pane',
+    argumentHint: '[keyword]',
+    searchPlaceholder: 'Search: chart, schedule',
+    searchSubmit: 'Go',
+    results: 'Results',
+    noResults: 'Nothing found. Try another word.',
+    unsorted: 'Unsorted',
+    filled: 'Filled',
+    copied: 'Copied',
+    missing: 'Gone',
+    openFailed: 'Could not open the tips pane',
+    groups: { say: 'Just say it', slash: 'Slash commands', mine: 'Mine' },
+    notices: {
+      runtimeBroken: "tips.json can't be read; using the copy bundled with the pane",
+      localBroken: 'tips.local.json is not valid JSON; ignored',
+      skipped: (count: number) => `Skipped ${count} ${count === 1 ? 'entry' : 'entries'} with missing fields`,
+    },
+  },
+} as const
+
+/** The labels of the language switch, each in its own language. */
+export const LANGUAGE_LABELS: Record<Language, string> = { zh: '中文', en: 'EN' }
+
+export function noticeText(notice: Notice, language: Language): string {
+  const text = UI_TEXT[language].notices
+  switch (notice.kind) {
+    case 'runtime-broken':
+      return text.runtimeBroken
+    case 'local-broken':
+      return text.localBroken
+    case 'skipped':
+      return text.skipped(notice.count)
+  }
+}
+
+/**
+ * The row as drawn in one language: English shows `en` text where the entry
+ * has it and falls back to the Chinese otherwise. The other language's title
+ * joins the keywords, so a search in either language still finds the row.
+ */
+export function localizeRow<T extends Tip>(row: T, language: Language): T {
+  if (language === 'en') {
+    const keywords = row.titleEn !== '' ? [...row.keywords, row.title] : row.keywords
+    return {
+      ...row,
+      title: row.titleEn || row.title,
+      detail: row.detailEn || row.detail,
+      keywords,
+    }
+  }
+  return row.titleEn !== '' ? { ...row, keywords: [...row.keywords, row.titleEn] } : row
+}
 
 const GROUP_IDS = new Set<string>(['say', 'slash', 'mine'])
 
@@ -36,6 +111,7 @@ export function toTip(raw: unknown): Tip | undefined {
   if (!entry) return undefined
   const { id, group, title, copy, detail, keywords, icon } = entry
   const source = asRecord(entry.source)
+  const english = asRecord(entry.en)
   if (!isText(id) || !isText(title) || !isText(copy)) return undefined
   if (typeof group !== 'string' || !GROUP_IDS.has(group)) return undefined
   return {
@@ -44,6 +120,8 @@ export function toTip(raw: unknown): Tip | undefined {
     title,
     copy,
     detail: isText(detail) ? detail : '',
+    titleEn: isText(english?.title) ? english.title : '',
+    detailEn: isText(english?.detail) ? english.detail : '',
     keywords: Array.isArray(keywords) ? keywords.filter(isText) : [],
     icon: isText(icon) ? icon : '',
     sourceKind: isText(source?.kind) ? source.kind : '',
@@ -201,6 +279,8 @@ export function buildRows(
       title: skill.name,
       copy: `/${skill.name}`,
       detail: skill.description,
+      titleEn: '',
+      detailEn: '',
       keywords: [skill.dirName],
       icon: '',
       sourceKind: 'user-skill',
