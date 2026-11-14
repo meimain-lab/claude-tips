@@ -91,7 +91,7 @@
       "group": "slash",
       "title": "少弹确认框：常用只读命令加白名单",
       "copy": "/fewer-permission-prompts",
-      "detail": "扫描你过去的对话，把经常被问“是否允许”的只读命令整理成白名单，以后不再反复确认。",
+      "detail": "扫描你过去的对话，把经常被问“是否允许”的只读命令整理成白名单，写进当前项目的 .claude/settings.json，以后在这个项目里不再反复确认。",
       "keywords": ["权限", "确认", "弹窗", "白名单", "允许", "permission", "allowlist", "prompt"],
       "icon": "lock.open",
       "source": { "kind": "builtin-skill", "name": "fewer-permission-prompts" }
