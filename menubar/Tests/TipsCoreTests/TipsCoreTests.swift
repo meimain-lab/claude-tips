@@ -245,3 +245,24 @@ private func json(_ object: Any) -> Data {
         #expect(state.isAtTop && state.isAtBottom && state.rowsBelow == 0)
     }
 }
+
+@Suite struct ViewportHeightTests {
+    private func height(_ rows: Int) -> Double {
+        ListOverflow.viewportHeight(rowCount: rows, rowHeight: 52, spacing: 2, visibleRows: 6)
+    }
+
+    @Test func fittingListsKeepTheirHeight() {
+        #expect(height(0) == 0)
+        #expect(height(5) == 5 * 54)
+        #expect(height(6) == 6 * 54)
+    }
+
+    @Test func overflowingListShowsHalfOfTheNextRow() {
+        #expect(height(7) == 6 * 54 + 26)
+        #expect(height(20) == 6 * 54 + 26)
+        // Seven rows in that viewport: the seventh is cut, so one row remains.
+        let state = ListOverflow(rowCount: 7, rowHeight: 52, spacing: 2, viewportHeight: height(7), offset: 0)
+        #expect(state.rowsBelow == 1)
+        #expect(state.firstRowBelow == 6)
+    }
+}

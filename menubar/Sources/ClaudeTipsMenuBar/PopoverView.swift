@@ -124,7 +124,8 @@ enum TipListMetrics {
     static let fadeHeight: CGFloat = 28
 
     static func viewportHeight(rowCount: Int) -> CGFloat {
-        CGFloat(min(rowCount, visibleRows)) * CGFloat(rowHeight + spacing)
+        CGFloat(ListOverflow.viewportHeight(
+            rowCount: rowCount, rowHeight: rowHeight, spacing: spacing, visibleRows: visibleRows))
     }
 }
 
@@ -297,11 +298,13 @@ private struct MoreRowsPill: View {
             .foregroundStyle(.secondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 3)
-            .background(
-                Capsule()
-                    .fill(.regularMaterial)
-                    .overlay(Capsule().stroke(Color.primary.opacity(0.12)))
-            )
+            // Material clipped to the capsule itself; a filled shape left a
+            // stray rectangular edge beside the pill.
+            .background(.regularMaterial, in: Capsule())
+            // Keeps the hint legible over the cut row's text behind it.
+            .background(Color(nsColor: .windowBackgroundColor).opacity(0.85), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12)))
+            .clipShape(Capsule())
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)

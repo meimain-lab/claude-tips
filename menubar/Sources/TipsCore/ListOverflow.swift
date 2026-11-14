@@ -12,6 +12,15 @@ public struct ListOverflow: Equatable, Sendable {
     /// The first row that is not fully visible below; scrolling it to the top pages down.
     public let firstRowBelow: Int?
 
+    /// Height of the list viewport. A list that fits shows all its rows; a longer
+    /// one shows `visibleRows` rows plus half of the next, so the cut row itself
+    /// says the list continues (and the 还有 N 条 hint sits over that cut row).
+    public static func viewportHeight(rowCount: Int, rowHeight: Double, spacing: Double, visibleRows: Int) -> Double {
+        let pitch = rowHeight + spacing
+        if rowCount <= visibleRows { return Double(max(0, rowCount)) * pitch }
+        return Double(visibleRows) * pitch + rowHeight / 2
+    }
+
     /// - Parameters:
     ///   - rowCount: number of rows.
     ///   - rowHeight: height of one row.
