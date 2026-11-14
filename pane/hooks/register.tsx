@@ -30,6 +30,15 @@ const query = atom({ plugin: 'tips-pane', key: 'query' } as const, '')
 const feedback = atom({ plugin: 'tips-pane', key: 'feedback' } as const, null, {
   shape: 'feedback-1',
 })
+// The one row whose detail is open, by id; null when every row is closed.
+const expanded = atom({ plugin: 'tips-pane', key: 'expanded' } as const, null as string | null)
+
+/** Text glyphs for the detail toggle: closed and open look different, no emoji. */
+const TOGGLE_CLOSED = '\u203A'
+const TOGGLE_OPEN = '\u2304'
+// No-break spaces widen the toggle's press target on graphical surfaces,
+// where a lone glyph is only a few points wide; ordinary spaces collapse.
+const TOGGLE_PAD = '\u00A0\u00A0'
 
 async function readOptional($: EngineInterface, path: string): Promise<string | undefined> {
   try {
@@ -92,6 +101,7 @@ async function openPane($: EngineInterface, keyword: string): Promise<void> {
   await update($, library, () => loaded)
   await update($, query, () => keyword)
   await update($, feedback, () => null)
+  await update($, expanded, () => null)
   await $.ui.open({ id: PANE_ID, title: PANE_TITLE })
 }
 
@@ -149,6 +159,7 @@ export const register: Register = on => {
     const data = (await read($, library)) ?? (await loadLibrary($))
     const keyword = await read($, query)
     const shown = await read($, feedback)
+    const openId = await read($, expanded)
     const isGraphical = Svg !== undefined
     const unsortedIds = new Set(data.unsorted.map(row => row.id))
     const groupOf = (row: Row): IconGroup => (unsortedIds.has(row.id) ? 'unsorted' : row.group)
@@ -176,7 +187,8 @@ export const register: Register = on => {
       const isUnsorted = unsortedIds.has(row.id)
       const description = isUnsorted ? firstSentence(row.detail) : ''
       const second = description !== '' ? description : row.copy
-      const isSecondMono = description === ''
+      const hasDetail = row.detail.trim() !== ''
+      const isOpen = hasDetail && openId === row.id
       const strong = isActive ? '#FFFFFF' : undefined
       return (
         <Box
@@ -201,24 +213,52 @@ export const register: Register = on => {
                 {row.title}
               </Text>
             </Button>
-            {/* A plain Button's label sits about 6 pt in; xs lines the second line up with it. */}
-            <Box paddingLeft={isGraphical ? 'xs' : 0}>
-              <Text
-                mono={isSecondMono}
-                size="footnote"
-                color={strong}
-                dimColor={!isActive}
-                wrap="truncate-end"
-              >
+            {/* The second line is a Button too, so it fills the same text; a
+                Button ignores mono, so the English is drawn proportional. */}
+            <Button
+              key={`copy-${row.id}`}
+              plain
+              dimColor={!isActive}
+              onPress={press => useTip($, row, press.surface)}
+            >
+              <Text size="footnote" color={strong} dimColor={!isActive} wrap="truncate-end">
                 {second}
               </Text>
-            </Box>
+            </Button>
+            {isOpen && (
+              // A plain Button's label sits about 6 pt in; xs lines the detail up with it.
+              <Box key={`detail-${row.id}`} paddingLeft={isGraphical ? 'xs' : 0} paddingTop={isGraphical ? 'xs' : 0}>
+                <Text size="footnote" color={strong} dimColor={!isActive} wrap="wrap">
+                  {row.detail}
+                </Text>
+              </Box>
+            )}
           </Box>
           {status !== '' && (
             <Box key={`status-${row.id}`} flexShrink={0}>
               <Text size="footnote" color={strong} dimColor={!isActive}>
                 {status}
               </Text>
+            </Box>
+          )}
+          {hasDetail && (
+            <Box key={`toggle-box-${row.id}`} flexShrink={0}>
+              <Button
+                key={`toggle-${row.id}`}
+                plain
+                dimColor={!isActive}
+                onPress={() => {
+                  void update($, expanded, current => (current === row.id ? null : row.id))
+                }}
+              >
+                <Text color={strong} dimColor={!isActive}>
+                  {isGraphical
+                    ? `${TOGGLE_PAD}${isOpen ? TOGGLE_OPEN : TOGGLE_CLOSED}${TOGGLE_PAD}`
+                    : isOpen
+                      ? TOGGLE_OPEN
+                      : TOGGLE_CLOSED}
+                </Text>
+              </Button>
             </Box>
           )}
         </Box>
@@ -252,14 +292,16 @@ export const register: Register = on => {
       <Box key="search-box" width="100%">
         <Input
         key="search"
-        placeholder="搜一下：画图、定时、交接"
+        placeholder="搜索：画图、定时"
         value={keyword}
         submitLabel="搜"
         onInput={value => {
           void update($, query, () => value)
+          void update($, expanded, () => null)
         }}
         onSubmit={value => {
           void update($, query, () => value)
+          void update($, expanded, () => null)
         }}
         />
       </Box>

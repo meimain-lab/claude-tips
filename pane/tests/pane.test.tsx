@@ -27,7 +27,7 @@ const PUBLIC = JSON.stringify({
       group: 'say',
       title: '把数据画成图',
       copy: 'Turn this data into a chart.',
-      detail: '画图',
+      detail: '画图的详细说明。',
       keywords: ['图表', 'chart'],
       icon: 'chart.bar',
       source: { kind: 'builtin-skill', name: 'dataviz' },
@@ -37,7 +37,7 @@ const PUBLIC = JSON.stringify({
       group: 'slash',
       title: '对话太长时压缩',
       copy: '/compact',
-      detail: '压缩',
+      detail: '压缩的详细说明。',
       keywords: ['压缩'],
       icon: 'arrow',
       source: { kind: 'builtin-command', name: 'compact' },
@@ -110,7 +110,7 @@ const defaultFiles = (): Files => ({
   [`${RUNTIME}/tips.local.json`]: LOCAL,
   [`${SKILLS}/kept-skill/SKILL.md`]: '---\nname: kept-skill\ndescription: Kept.\n---\n',
   [`${SKILLS}/loose-skill/SKILL.md`]:
-    '---\nname: loose-skill\ndescription: Not in any tip yet.\n---\n',
+    '---\nname: loose-skill\ndescription: Not in any tip yet. It also does a second thing.\n---\n',
 })
 
 /** Stands in for the engine's files, environment and timers. */
@@ -156,13 +156,15 @@ test('the pane lists merged groups, 未整理 and marks a missing skill', async 
   }
 })
 
-test('each row is two lines: the title is the button, the English text sits under it', async ($, on) => {
+test('each row is two lines, and both lines are buttons', async ($, on) => {
   engine(on, defaultFiles())
   for (const surface of ['desktop', 'terminal'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
     const button = await ui.find({ key: 'tip-chart-data' })
     expect(button?.text).toBe('把数据画成图')
-    expect(await ui.find({ type: 'Text', text: 'Turn this data into a chart.' })).toBeDefined()
+    const english = await ui.find({ key: 'copy-chart-data' })
+    expect(english?.type).toBe('Button')
+    expect(english?.text).toBe('Turn this data into a chart.')
     // The icon block is its own fixed element, not part of the button.
     expect(await ui.find({ key: 'icon-chart-data' })).toBeDefined()
     await ui.unmount()
@@ -178,10 +180,16 @@ test('an 未整理 row shows the skill description under its name, and fills /na
   })
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   expect((await ui.find({ key: 'tip-unsorted-loose-skill' }))?.text).toBe('loose-skill')
-  expect(await ui.find({ type: 'Text', text: 'Not in any tip yet.' })).toBeDefined()
+  expect((await ui.find({ key: 'copy-unsorted-loose-skill' }))?.text).toBe('Not in any tip yet.')
   expect(await ui.find({ type: 'Text', text: '/loose-skill' })).toBeUndefined()
   await ui.press({ key: 'tip-unsorted-loose-skill' })
-  expect(fills).toEqual(['/loose-skill'])
+  await ui.press({ key: 'copy-unsorted-loose-skill' })
+  expect(fills).toEqual(['/loose-skill', '/loose-skill'])
+  // Its detail is the whole description, not just the first sentence.
+  await ui.press({ key: 'toggle-unsorted-loose-skill' })
+  expect((await ui.find({ key: 'detail-unsorted-loose-skill' }))?.text).toBe(
+    'Not in any tip yet. It also does a second thing.',
+  )
   await ui.unmount()
 })
 
@@ -196,6 +204,64 @@ test('pressing a row fills the prompt box with its English text', async ($, on) 
   await ui.press({ key: 'tip-chart-data' })
   expect(fills).toEqual([{ text: 'Turn this data into a chart.', mode: 'insert' }])
   expect(await ui.find({ type: 'Text', text: '已填入' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('pressing the English line fills the same text and shows 已填入', async ($, on) => {
+  engine(on, defaultFiles())
+  const fills: string[] = []
+  on('prompt.fill', (_, e) => {
+    fills.push(e.text)
+    return { isFilled: true, draft: e.text, cursor: e.text.length }
+  })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'copy-compact' })
+  expect(fills).toEqual(['/compact'])
+  expect(await ui.find({ key: 'status-compact' })).toBeDefined()
+  expect((await ui.find({ key: 'status-compact' }))?.text).toBe('已填入')
+  await ui.unmount()
+})
+
+test('the toggle opens and closes a row detail, one row at a time', async ($, on) => {
+  engine(on, defaultFiles())
+  for (const surface of ['desktop', 'terminal'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ key: 'detail-chart-data' })).toBeUndefined()
+    expect((await ui.find({ key: 'toggle-chart-data' }))?.text?.trim()).toBe('\u203A')
+    await ui.press({ key: 'toggle-chart-data' })
+    expect((await ui.find({ key: 'detail-chart-data' }))?.text).toBe('画图的详细说明。')
+    expect((await ui.find({ key: 'toggle-chart-data' }))?.text?.trim()).toBe('\u2304')
+    // Opening another row closes the first.
+    await ui.press({ key: 'toggle-compact' })
+    expect(await ui.find({ key: 'detail-chart-data' })).toBeUndefined()
+    expect((await ui.find({ key: 'detail-compact' }))?.text).toBe('压缩的详细说明。')
+    // Pressing the open row's toggle again closes it.
+    await ui.press({ key: 'toggle-compact' })
+    expect(await ui.find({ key: 'detail-compact' })).toBeUndefined()
+    // A row with no detail has no toggle.
+    expect(await ui.find({ key: 'toggle-kept-skill' })).toBeUndefined()
+    await ui.unmount()
+  }
+})
+
+test('the status text comes before the toggle', async ($, on) => {
+  engine(on, defaultFiles())
+  on('prompt.fill', (_, e) => ({ isFilled: true, draft: e.text, cursor: e.text.length }))
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'tip-chart-data' })
+  const row = await ui.find({ key: 'row-chart-data' })
+  expect(row?.text).toMatch(/已填入\s*\u203A\s*$/)
+  await ui.unmount()
+})
+
+test('a search change closes the open detail', async ($, on) => {
+  engine(on, defaultFiles())
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'toggle-chart-data' })
+  expect(await ui.find({ key: 'detail-chart-data' })).toBeDefined()
+  await ui.input({ key: 'search', text: 'chart' })
+  expect(await ui.find({ key: 'row-chart-data' })).toBeDefined()
+  expect(await ui.find({ key: 'detail-chart-data' })).toBeUndefined()
   await ui.unmount()
 })
 

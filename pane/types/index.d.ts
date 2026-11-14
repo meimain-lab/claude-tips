@@ -33,6 +33,7 @@ declare module 'claude-code' {
       library: Shaped<Library | null>
       query: string
       feedback: Shaped<Feedback | null>
+      expanded: string | null
     }
   }
 }
