@@ -18,7 +18,7 @@ Claude Code 速查表：不用记功能名，查一下“该说什么、该输�
 ### 1. 取得代码并安装内容文件
 
 ```bash
-git clone https://github.com/OWNER/claude-tips.git
+git clone https://github.com/meimain-lab/claude-tips.git
 ```
 
 ```bash
@@ -29,23 +29,23 @@ cd claude-tips
 scripts/install-content.sh
 ```
 
-`OWNER` 换成这个仓库所在的 GitHub 账号。`install-content.sh` 会先校验 `content/tips.json`，再把它复制到 `~/.claude/claude-tips/tips.json`。它从不改动你自己的 `tips.local.json`。
+`install-content.sh` 会先校验 `content/tips.json`，再把它复制到 `~/.claude/claude-tips/tips.json`。它从不改动你自己的 `tips.local.json`。
 
 ### 2. 侧边面板
 
 面板是一个 Claude Code 的 mod（插件名 `tips-pane`）。三种装法任选一种：
 
-- **Claude 桌面应用**：点输入框旁边的 **+**，选 **Plugins** → **Add marketplace**，填 `OWNER/claude-tips`（也可以填第 1 步克隆下来的文件夹路径），再 **Add plugin** 选 `tips-pane`。
+- **Claude 桌面应用**：点输入框旁边的 **+**，选 **Plugins** → **Add marketplace**，填 `meimain-lab/claude-tips`（也可以填第 1 步克隆下来的文件夹路径），再 **Add plugin** 选 `tips-pane`。
 - **终端里的 Claude Code 会话**：输入下面这行，提示添加 marketplace 时回答 `y`，再选安装范围。
 
   ```
-  /plugin install tips-pane --marketplace OWNER/claude-tips
+  /plugin install tips-pane --marketplace meimain-lab/claude-tips
   ```
 
 - **命令行**：
 
   ```bash
-  claude plugin install tips-pane --marketplace OWNER/claude-tips
+  claude plugin install tips-pane --marketplace meimain-lab/claude-tips
   ```
 
 装好后，在新会话里输入 `/tips` 打开面板，再输入一次关闭。
