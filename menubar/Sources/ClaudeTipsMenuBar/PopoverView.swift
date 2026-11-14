@@ -116,8 +116,67 @@ private struct SegmentBar: View {
     }
 }
 
+/// Row geometry shared by the list frame and the overflow math.
+enum TipListMetrics {
+    static let rowHeight: Double = 52
+    static let spacing: Double = 2
+    static let visibleRows = 6
+    static let fadeHeight: CGFloat = 28
+
+    static func viewportHeight(rowCount: Int) -> CGFloat {
+        CGFloat(min(rowCount, visibleRows)) * CGFloat(rowHeight + spacing)
+    }
+}
+
+/// Reports the enclosing NSScrollView's vertical offset (0 at the top) whenever
+/// it scrolls. SwiftUI geometry preferences do not update on scroll on macOS,
+/// so this reads the native scroll view, which stays the source of truth.
+private struct ScrollOffsetReader: NSViewRepresentable {
+    let onChange: (CGFloat) -> Void
+
+    func makeNSView(context: Context) -> ReaderView {
+        let view = ReaderView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ view: ReaderView, context: Context) {
+        view.onChange = onChange
+    }
+
+    final class ReaderView: NSView {
+        var onChange: ((CGFloat) -> Void)?
+        private weak var observedClip: NSClipView?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let scrollView = enclosingScrollView, observedClip !== scrollView.contentView else { return }
+            if let observedClip {
+                NotificationCenter.default.removeObserver(self, name: NSView.boundsDidChangeNotification, object: observedClip)
+            }
+            let clip = scrollView.contentView
+            clip.postsBoundsChangedNotifications = true
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(boundsChanged), name: NSView.boundsDidChangeNotification, object: clip)
+            observedClip = clip
+            report()
+        }
+
+        @objc private func boundsChanged() { report() }
+
+        private func report() {
+            guard let scrollView = enclosingScrollView, let document = scrollView.documentView else { return }
+            let visible = scrollView.documentVisibleRect
+            let offset = document.isFlipped ? visible.minY : document.bounds.height - visible.maxY
+            onChange?(max(0, offset))
+        }
+    }
+}
+
 private struct TipList: View {
     @ObservedObject var model: TipsViewModel
+    @State private var offset: CGFloat = 0
+    @State private var lastSelected = 0
 
     var body: some View {
         let rows = model.visibleTips
@@ -127,36 +186,126 @@ private struct TipList: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 80)
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 2) {
-                            ForEach(Array(rows.enumerated()), id: \.element.id) { index, tip in
-                                TipRow(
-                                    tip: tip,
-                                    isSelected: index == model.selectedIndex,
-                                    isCopied: model.copiedId == tip.id,
-                                    onCopy: {
-                                        model.selectedIndex = index
-                                        model.copy(tip)
-                                    },
-                                    onDetail: {
-                                        model.selectedIndex = index
-                                        model.detailTip = tip
-                                    }
-                                )
-                                .id(tip.id)
-                            }
-                        }
-                        .padding(.horizontal, 8)
-                    }
-                    .frame(height: min(CGFloat(rows.count) * 54, 54 * 6))
-                    .onChange(of: model.selectedIndex) { index in
-                        guard rows.indices.contains(index) else { return }
-                        proxy.scrollTo(rows[index].id)
-                    }
-                }
+                list(rows)
             }
         }
+    }
+
+    private func list(_ rows: [Tip]) -> some View {
+        let viewport = TipListMetrics.viewportHeight(rowCount: rows.count)
+        let overflow = ListOverflow(
+            rowCount: rows.count, rowHeight: TipListMetrics.rowHeight, spacing: TipListMetrics.spacing,
+            viewportHeight: Double(viewport), offset: Double(offset)
+        )
+        return ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: TipListMetrics.spacing) {
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { index, tip in
+                        TipRow(
+                            tip: tip,
+                            isSelected: index == model.selectedIndex,
+                            isCopied: model.copiedId == tip.id,
+                            onCopy: {
+                                model.selectedIndex = index
+                                model.copy(tip)
+                            },
+                            onDetail: {
+                                model.selectedIndex = index
+                                model.detailTip = tip
+                            }
+                        )
+                        .id(tip.id)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .background(ScrollOffsetReader { newOffset in
+                    // Scrolls can land inside SwiftUI's own update pass, where a
+                    // state write would be dropped; apply it on the next turn.
+                    DispatchQueue.main.async {
+                        if abs(newOffset - offset) > 0.25 { offset = newOffset }
+                    }
+                })
+            }
+            .frame(height: viewport)
+            .mask(EdgeFadeMask(fadeTop: !overflow.isAtTop, fadeBottom: !overflow.isAtBottom))
+            .overlay(alignment: .bottom) {
+                if !overflow.isAtBottom, overflow.rowsBelow > 0 {
+                    MoreRowsPill(count: overflow.rowsBelow) {
+                        guard let first = overflow.firstRowBelow, rows.indices.contains(first) else { return }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(rows[first].id, anchor: .top) }
+                    }
+                    .padding(.bottom, 4)
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: overflow.isAtBottom)
+            .animation(.easeOut(duration: 0.15), value: overflow.isAtTop)
+            .onChange(of: model.selectedIndex) { index in
+                // Keep one row of lookahead in the moving direction, so the
+                // selected row never sits under the edge fade or the hint.
+                let previous = lastSelected
+                lastSelected = index
+                guard rows.indices.contains(index) else { return }
+                let target = index > previous ? min(index + 1, rows.count - 1) : max(index - 1, 0)
+                proxy.scrollTo(rows[target].id)
+            }
+            .onChange(of: rows.map(\.id)) { ids in
+                if let first = ids.first { proxy.scrollTo(first, anchor: .top) }
+            }
+            .onChange(of: model.focusToken) { _ in
+                if let first = rows.first { proxy.scrollTo(first.id, anchor: .top) }
+            }
+        }
+    }
+}
+
+/// Opaque in the middle; fades the top or bottom edge only where more rows are hidden.
+private struct EdgeFadeMask: View {
+    let fadeTop: Bool
+    let fadeBottom: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            edge(fading: fadeTop, from: .clear, to: .black)
+            Rectangle().fill(Color.black)
+            edge(fading: fadeBottom, from: .black, to: .clear)
+        }
+    }
+
+    private func edge(fading: Bool, from: Color, to: Color) -> some View {
+        ZStack {
+            LinearGradient(colors: [from, to], startPoint: .top, endPoint: .bottom)
+            Rectangle().fill(Color.black).opacity(fading ? 0 : 1)
+        }
+        .frame(height: TipListMetrics.fadeHeight)
+    }
+}
+
+/// Neutral hint at the bottom of an overflowing list; a click pages down.
+private struct MoreRowsPill: View {
+    let count: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text("还有 \(count) 条")
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(.regularMaterial)
+                    .overlay(Capsule().stroke(Color.primary.opacity(0.12)))
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("向下翻一页")
     }
 }
 

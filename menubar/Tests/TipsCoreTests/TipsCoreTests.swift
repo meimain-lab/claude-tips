@@ -195,3 +195,53 @@ private func json(_ object: Any) -> Data {
         #expect(library.notices.isEmpty)
     }
 }
+
+/// Rows are 52 pt with 2 pt gaps, and the popover shows six (324 pt), as in PopoverView.
+@Suite struct ListOverflowTests {
+    private func overflow(rows: Int, offset: Double, viewport: Double = 324) -> ListOverflow {
+        ListOverflow(rowCount: rows, rowHeight: 52, spacing: 2, viewportHeight: viewport, offset: offset)
+    }
+
+    @Test func fittingListHasNoOverflow() {
+        let state = overflow(rows: 5, offset: 0, viewport: 5 * 54)
+        #expect(state.isAtTop && state.isAtBottom)
+        #expect(state.rowsBelow == 0 && state.rowsAbove == 0)
+        #expect(state.firstRowBelow == nil)
+    }
+
+    @Test func eightRowsAtTopLeaveTwoBelow() {
+        let state = overflow(rows: 8, offset: 0)
+        #expect(state.isAtTop && !state.isAtBottom)
+        #expect(state.rowsBelow == 2)
+        #expect(state.firstRowBelow == 6)
+    }
+
+    @Test func countGoesDownWhileScrolling() {
+        // Scrolled by just under one row: row 6 is still cut off at the bottom.
+        #expect(overflow(rows: 8, offset: 20).rowsBelow == 2)
+        // Scrolled one row: row 6 is fully in view, row 7 is not.
+        let state = overflow(rows: 8, offset: 54)
+        #expect(state.rowsBelow == 1)
+        #expect(state.rowsAbove == 1)
+        #expect(!state.isAtTop && !state.isAtBottom)
+    }
+
+    @Test func atBottomNothingRemains() {
+        let contentHeight = 8.0 * 54 - 2
+        let state = overflow(rows: 8, offset: contentHeight - 324)
+        #expect(state.isAtBottom && !state.isAtTop)
+        #expect(state.rowsBelow == 0)
+        #expect(state.rowsAbove == 2)
+    }
+
+    @Test func overscrollIsClamped() {
+        #expect(overflow(rows: 8, offset: -40).isAtTop)
+        #expect(overflow(rows: 8, offset: 999).isAtBottom)
+        #expect(overflow(rows: 8, offset: 999).rowsBelow == 0)
+    }
+
+    @Test func emptyListIsAtBothEdges() {
+        let state = overflow(rows: 0, offset: 0)
+        #expect(state.isAtTop && state.isAtBottom && state.rowsBelow == 0)
+    }
+}

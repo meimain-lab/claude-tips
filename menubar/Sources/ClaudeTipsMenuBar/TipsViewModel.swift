@@ -96,7 +96,8 @@ final class TipsViewModel: ObservableObject {
     /// Re-reads the content files; called every time the popover opens.
     func reload() {
         library = loadLibrary(from: locations)
-        if !segments.contains(segment) { segment = .group(.say) }
+        // Every open starts on 直接说, like a fresh launch.
+        segment = .group(.say)
         query = ""
         selectedIndex = 0
         detailTip = nil
