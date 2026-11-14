@@ -1,0 +1,14 @@
+{
+  "name": "tips-cheat-sheet",
+  "owner": { "name": "claude-tips contributors" },
+  "metadata": {
+    "description": "Claude Code 速查表：侧边面板 mod（tips-pane）。纯本地界面，不向会话注入任何内容。"
+  },
+  "plugins": [
+    {
+      "name": "tips-pane",
+      "source": "./pane",
+      "description": "速查侧边面板：/tips 打开，点一行把英文原文填进输入框。"
+    }
+  ]
+}
