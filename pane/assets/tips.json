@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "groups": [
+    { "id": "say", "title": "直接说", "icon": "bubble.left" },
+    { "id": "slash", "title": "斜杠命令", "icon": "terminal" },
+    { "id": "mine", "title": "我的", "icon": "star" }
+  ],
+  "tips": [
+    {
+      "id": "chart-data",
+      "group": "say",
+      "title": "把数据画成图，自动套图表规范",
+      "copy": "Turn this data into a chart.",
+      "detail": "只要提到画图，Claude 会先读一套图表配色和排版规范再动手，图在浅色和深色下都好看。不用记功能名，直接说要什么图。",
+      "keywords": ["画图", "图表", "可视化", "柱状图", "折线图", "chart", "graph", "plot", "dataviz"],
+      "icon": "chart.bar",
+      "source": { "kind": "builtin-skill", "name": "dataviz" }
+    },
+    {
+      "id": "standing-rule",
+      "group": "say",
+      "title": "立一条长期自动执行的规矩",
+      "copy": "From now on, run the tests every time you edit code.",
+      "detail": "说出想长期生效的规矩，Claude 会把它写进设置，之后由程序自动执行，不靠记性。把例句里的动作换成你自己的。",
+      "keywords": ["以后每次", "自动", "规矩", "规则", "权限", "hook", "from now on", "whenever", "settings"],
+      "icon": "arrow.triangle.2.circlepath",
+      "source": { "kind": "builtin-skill", "name": "update-config" }
+    },
+    {
+      "id": "run-and-verify",
+      "group": "say",
+      "title": "启动项目，实际操作一遍来验证",
+      "copy": "Run the app and show me it works.",
+      "detail": "Claude 会把项目真正跑起来并操作一遍，而不是只跑测试。适合改完界面或功能后想亲眼确认的时候。",
+      "keywords": ["运行", "启动", "跑起来", "验证", "截图", "run", "start", "launch", "verify"],
+      "icon": "play",
+      "source": { "kind": "builtin-skill", "name": "run" }
+    },
+    {
+      "id": "share-as-web-page",
+      "group": "say",
+      "title": "做成可分享的私有网页",
+      "copy": "Make this a web page and give me a link to share.",
+      "detail": "Claude 会把结果发布成一个网页并给你链接。默认只有你能看，要分享时再自己打开权限。",
+      "keywords": ["网页", "链接", "分享", "发布", "报告", "artifact", "web page", "link", "share"],
+      "icon": "link",
+      "source": { "kind": "builtin-tool", "name": "Artifact" }
+    },
+    {
+      "id": "find-skill-or-plugin",
+      "group": "say",
+      "title": "找现成的 skill 或插件",
+      "copy": "Is there a skill or plugin that already does this?",
+      "detail": "Claude 会在可安装的 skill 和插件里找适合当前任务的，并给出安装卡片。适合觉得“这事应该有现成工具”的时候。",
+      "keywords": ["技能", "插件", "推荐", "安装", "现成", "skill", "plugin", "recommend", "install"],
+      "icon": "puzzlepiece",
+      "source": { "kind": "builtin-tool", "name": "SuggestSkills" }
+    },
+    {
+      "id": "code-review",
+      "group": "slash",
+      "title": "找出当前改动里的 bug",
+      "copy": "/code-review",
+      "detail": "检查当前还没提交的改动，列出可能的 bug。后面可以跟力度，比如 /code-review high。",
+      "keywords": ["审查", "检查", "代码", "bug", "review", "diff"],
+      "icon": "ladybug",
+      "source": { "kind": "builtin-skill", "name": "code-review" }
+    },
+    {
+      "id": "simplify",
+      "group": "slash",
+      "title": "把改过的代码整理简洁",
+      "copy": "/simplify",
+      "detail": "只管代码质量：去重复、简化、提效率，并直接改好。它不找 bug，找 bug 用 /code-review。",
+      "keywords": ["整理", "简化", "重构", "清理", "simplify", "cleanup", "refactor"],
+      "icon": "wand.and.stars",
+      "source": { "kind": "builtin-skill", "name": "simplify" }
+    },
+    {
+      "id": "security-review",
+      "group": "slash",
+      "title": "检查当前改动的安全问题",
+      "copy": "/security-review",
+      "detail": "对当前分支上还没合并的改动做一次安全检查，适合提交或发布之前。",
+      "keywords": ["安全", "漏洞", "检查", "security", "vulnerability"],
+      "icon": "checkmark.shield",
+      "source": { "kind": "builtin-skill", "name": "security-review" }
+    },
+    {
+      "id": "fewer-permission-prompts",
+      "group": "slash",
+      "title": "少弹确认框：常用只读命令加白名单",
+      "copy": "/fewer-permission-prompts",
+      "detail": "扫描你过去的对话，把经常被问“是否允许”的只读命令整理成白名单，以后不再反复确认。",
+      "keywords": ["权限", "确认", "弹窗", "白名单", "允许", "permission", "allowlist", "prompt"],
+      "icon": "lock.open",
+      "source": { "kind": "builtin-skill", "name": "fewer-permission-prompts" }
+    },
+    {
+      "id": "loop",
+      "group": "slash",
+      "title": "每 5 分钟重复一条指令",
+      "copy": "/loop 5m check the deploy status",
+      "detail": "按固定间隔重复执行后面的指令。把 5m 换成你要的间隔，把后面的话换成要重复做的事。",
+      "keywords": ["重复", "定时", "循环", "轮询", "每隔", "loop", "repeat", "interval", "poll"],
+      "icon": "repeat",
+      "source": { "kind": "builtin-skill", "name": "loop" }
+    },
+    {
+      "id": "schedule",
+      "group": "slash",
+      "title": "定时在云端自动跑任务",
+      "copy": "/schedule",
+      "detail": "创建一个按时间表在云端运行的任务，电脑关着也会跑。比如每天早上九点整理一次。",
+      "keywords": ["定时", "计划", "每天", "云端", "提醒", "schedule", "cron", "routine"],
+      "icon": "calendar.badge.clock",
+      "source": { "kind": "builtin-skill", "name": "schedule" }
+    },
+    {
+      "id": "init",
+      "group": "slash",
+      "title": "为项目生成 CLAUDE.md 说明文件",
+      "copy": "/init",
+      "detail": "让 Claude 读一遍项目，写出一份说明文件。以后每次在这个项目里开新对话，Claude 都会先读它。",
+      "keywords": ["初始化", "说明", "项目", "文档", "init", "CLAUDE.md"],
+      "icon": "doc.text",
+      "source": { "kind": "builtin-skill", "name": "init" }
+    },
+    {
+      "id": "compact",
+      "group": "slash",
+      "title": "对话太长时压缩成摘要接着聊",
+      "copy": "/compact",
+      "detail": "把前面的对话压缩成摘要，腾出空间继续做。适合对话很长、Claude 开始变慢或忘事的时候。",
+      "keywords": ["压缩", "摘要", "太长", "上下文", "compact", "summarize", "context"],
+      "icon": "arrow.down.right.and.arrow.up.left",
+      "source": { "kind": "builtin-command", "name": "compact" }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "tips-pane",
+  "version": "0.1.0",
+  "description": "速查侧边面板：/tips 打开，点一行把英文原文填进输入框。纯本地界面，不向会话注入任何内容。",
+  "author": { "name": "claude-tips contributors" },
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}
