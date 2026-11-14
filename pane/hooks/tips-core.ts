@@ -210,10 +210,3 @@ export function buildRows(
   return { rows, unsorted }
 }
 
-/** Monochrome glyphs for the neutral icon block, one per group. */
-export const GROUP_GLYPHS: Record<GroupId | 'unsorted', string> = {
-  say: '“',
-  slash: '/',
-  mine: '☆',
-  unsorted: '·',
-}

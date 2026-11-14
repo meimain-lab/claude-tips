@@ -8,6 +8,7 @@ import {
   searchRows,
 } from '../hooks/tips-core'
 import type { Tip } from '../hooks/tips-core'
+import { GROUP_ICONS, ICON_PATHS, firstSentence, iconFor, tileSvg } from '../hooks/icons'
 
 const tip = (id: string, extra: Partial<Tip> = {}): Tip => ({
   id,
@@ -139,5 +140,41 @@ describe('readFrontmatter and buildRows', () => {
     const { rows, unsorted } = buildRows([tip('x', { sourceKind: 'user-skill' })], undefined)
     expect(rows[0]?.isMissing).toBe(false)
     expect(unsorted).toEqual([])
+  })
+})
+
+describe('icons', () => {
+  // The names content/tips.json and the example local file use today, plus
+  // four common extras. scripts/validate-tips.py checks the real files.
+  const CONTENT_ICONS = [
+    'arrow.down.right.and.arrow.up.left', 'arrow.triangle.2.circlepath', 'calendar.badge.clock',
+    'chart.bar', 'checkmark.shield', 'doc.text', 'ladybug', 'link', 'lock.open', 'play',
+    'puzzlepiece', 'repeat', 'wand.and.stars', 'star',
+    'note.text', 'arrow.triangle.branch', 'tag', 'paperplane',
+  ]
+
+  test('every icon name the content uses has a drawing', () => {
+    const missing = CONTENT_ICONS.filter(name => !(name in ICON_PATHS))
+    expect(missing).toEqual([])
+  })
+
+  test('an unknown icon name falls back to the group icon', () => {
+    expect(iconFor('no.such.symbol', 'slash')).toBe(GROUP_ICONS.slash)
+    expect(iconFor('', 'unsorted')).toBe(GROUP_ICONS.unsorted)
+    expect(iconFor('chart.bar', 'say')).toBe('chart.bar')
+    for (const name of Object.values(GROUP_ICONS)) expect(name in ICON_PATHS).toBe(true)
+  })
+
+  test('the tile is one fixed 32 px image', () => {
+    const svg = tileSvg('chart.bar', false)
+    expect(svg).toContain('width="32" height="32"')
+    expect(svg).toContain('<rect')
+  })
+
+  test('firstSentence keeps the first sentence on one line', () => {
+    expect(firstSentence('Does one thing. Then more.')).toBe('Does one thing.')
+    expect(firstSentence('先做这个。再做那个。')).toBe('先做这个。')
+    expect(firstSentence('No full stop\nat all')).toBe('No full stop at all')
+    expect(firstSentence('Version 2.1 works. Next.')).toBe('Version 2.1 works.')
   })
 })

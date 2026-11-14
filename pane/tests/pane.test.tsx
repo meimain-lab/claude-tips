@@ -137,19 +137,52 @@ function engine(on: Parameters<TestBody>[1], files: Files) {
   on('clock.after', () => ({ deny: 'timers are held in tests' }))
 }
 
+/** A section header's count, drawn as its own Text right after the title. */
+async function headerCount(ui: { find: (q: { key: string }) => Promise<{ text?: string } | undefined> }, key: string) {
+  return (await ui.find({ key: `heading-${key}` }))?.text
+}
+
 test('the pane lists merged groups, 未整理 and marks a missing skill', async ($, on) => {
   engine(on, defaultFiles())
   for (const surface of ['desktop', 'terminal'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /^直接说/ }))?.text).toBe('直接说 · 1')
-    expect((await ui.find({ type: 'Text', text: /^斜杠命令/ }))?.text).toBe('斜杠命令 · 1')
-    expect((await ui.find({ type: 'Text', text: /^我的/ }))?.text).toBe('我的 · 2')
-    expect((await ui.find({ type: 'Text', text: /^未整理/ }))?.text).toBe('未整理 · 1')
+    expect(await headerCount(ui, 'say')).toMatch(/直接说\s*1/)
+    expect(await headerCount(ui, 'slash')).toMatch(/斜杠命令\s*1/)
+    expect(await headerCount(ui, 'mine')).toMatch(/我的\s*2/)
+    expect(await headerCount(ui, 'unsorted')).toMatch(/未整理\s*1/)
     expect(await ui.find({ type: 'Text', text: /会被隐藏/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: '已不存在' })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: '/loose-skill' })).toBeDefined()
     await ui.unmount()
   }
+})
+
+test('each row is two lines: the title is the button, the English text sits under it', async ($, on) => {
+  engine(on, defaultFiles())
+  for (const surface of ['desktop', 'terminal'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    const button = await ui.find({ key: 'tip-chart-data' })
+    expect(button?.text).toBe('把数据画成图')
+    expect(await ui.find({ type: 'Text', text: 'Turn this data into a chart.' })).toBeDefined()
+    // The icon block is its own fixed element, not part of the button.
+    expect(await ui.find({ key: 'icon-chart-data' })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+test('an 未整理 row shows the skill description under its name, and fills /name', async ($, on) => {
+  engine(on, defaultFiles())
+  const fills: string[] = []
+  on('prompt.fill', (_, e) => {
+    fills.push(e.text)
+    return { isFilled: true, draft: e.text, cursor: e.text.length }
+  })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  expect((await ui.find({ key: 'tip-unsorted-loose-skill' }))?.text).toBe('loose-skill')
+  expect(await ui.find({ type: 'Text', text: 'Not in any tip yet.' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '/loose-skill' })).toBeUndefined()
+  await ui.press({ key: 'tip-unsorted-loose-skill' })
+  expect(fills).toEqual(['/loose-skill'])
+  await ui.unmount()
 })
 
 test('pressing a row fills the prompt box with its English text', async ($, on) => {
@@ -185,7 +218,7 @@ test('typing in the search box filters across groups', async ($, on) => {
   engine(on, defaultFiles())
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   await ui.input({ key: 'search', text: 'CHART' })
-  expect((await ui.find({ type: 'Text', text: /^搜索结果/ }))?.text).toBe('搜索结果 · 1')
+  expect(await headerCount(ui, 'results')).toMatch(/搜索结果\s*1/)
   expect(await ui.find({ type: 'Text', text: '/compact' })).toBeUndefined()
   await ui.input({ key: 'search', text: '没有这个词' })
   expect(await ui.find({ type: 'Text', text: '没有找到，换个词试试' })).toBeDefined()

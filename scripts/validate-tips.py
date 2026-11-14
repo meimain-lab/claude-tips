@@ -174,6 +174,7 @@ def main(argv):
     status = max(validate_file(path, local) for path in paths)
     if check_copies:
         status = max(status, check_fallback_copies())
+        status = max(status, check_pane_icons())
     return status
 
 
@@ -187,6 +188,32 @@ def check_fallback_copies():
         if not copy.exists() or copy.read_bytes() != source:
             print(
                 f"{copy}: out of date with content/tips.json; run scripts/sync-pane-fallback.sh",
+                file=sys.stderr,
+            )
+            status = 1
+    return status
+
+
+PANE_ICONS = REPO_DIR / "pane" / "hooks" / "icons.ts"
+EXAMPLE_PATH = REPO_DIR / "content" / "tips.local.example.json"
+
+
+def check_pane_icons():
+    """Fail when a content file names an icon the side pane has no drawing for."""
+    if not PANE_ICONS.exists():
+        return 0  # the pane is not in this checkout
+    table = PANE_ICONS.read_text(encoding="utf-8")
+    start = table.find("export const ICON_PATHS")
+    end = table.find("\n}", start)
+    drawn = set(re.findall(r"^\s+'?([A-Za-z0-9.]+)'?:\s*\[", table[start:end], re.MULTILINE))
+    status = 0
+    for path in (DEFAULT_PATH, EXAMPLE_PATH):
+        if not path.exists():
+            continue
+        tips = json.loads(path.read_text(encoding="utf-8")).get("tips", [])
+        for name in sorted({tip.get("icon") for tip in tips if tip.get("icon")} - drawn):
+            print(
+                f"{path}: icon {name!r} has no drawing in pane/hooks/icons.ts; add one there",
                 file=sys.stderr,
             )
             status = 1
