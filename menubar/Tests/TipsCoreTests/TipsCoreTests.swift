@@ -116,6 +116,22 @@ private func json(_ object: Any) -> Data {
         #expect(result.tips.first?.isMissing == false)
         #expect(result.unsorted.isEmpty)
     }
+
+    @Test func unreadableSymlinkedSkillStillCounts() throws {
+        let skills = FileManager.default.temporaryDirectory
+            .appendingPathComponent("tips-symlink-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: skills) }
+        try FileManager.default.createDirectory(at: skills, withIntermediateDirectories: true)
+        // A link whose target cannot be read, as when macOS denies Desktop access.
+        try FileManager.default.createSymbolicLink(
+            at: skills.appendingPathComponent("linked-skill"),
+            withDestinationURL: skills.appendingPathComponent("unreadable-target"))
+        try FileManager.default.createDirectory(
+            at: skills.appendingPathComponent("plain-folder"), withIntermediateDirectories: true)
+        let found = scanSkills(in: skills)
+        #expect(found?.map(\.dirName) == ["linked-skill"])
+        #expect(found?.first?.name == "linked-skill")
+    }
 }
 
 @Suite struct LoadingTests {

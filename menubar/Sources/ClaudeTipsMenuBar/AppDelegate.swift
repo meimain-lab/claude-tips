@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var keyMonitor: Any?
+    private var hotKey: HotKey?
     private lazy var model: TipsViewModel = {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let bundled = Bundle.main.url(forResource: "tips", withExtension: "json")
@@ -35,6 +36,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.animates = false
         popover.delegate = self
 
+        let hotKey = HotKey.optionCommandK { [weak self] in self?.togglePopover(nil) }
+        if !hotKey.register() {
+            NSLog("Claude Tips: \(Self.hotKeyLabel) is taken by another app; use the menu bar icon")
+        }
+        self.hotKey = hotKey
     }
 
     /// Left click toggles the popover; right click (or control-click) offers 退出.

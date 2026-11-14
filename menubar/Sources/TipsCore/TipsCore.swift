@@ -272,16 +272,30 @@ public func scanSkills(in skillsDir: URL, fileManager: FileManager = .default) -
     }
     var skills: [SkillInfo] = []
     for dirName in names.sorted() where !dirName.hasPrefix(".") {
-        let file = skillsDir.appendingPathComponent(dirName).appendingPathComponent("SKILL.md")
-        guard let data = fileManager.contents(atPath: file.path),
-              let source = String(data: data, encoding: .utf8)
-        else { continue }
-        let meta = readFrontmatter(source)
+        let entry = skillsDir.appendingPathComponent(dirName)
+        let file = entry.appendingPathComponent("SKILL.md")
+        let meta: (name: String?, description: String?)
+        if let data = fileManager.contents(atPath: file.path),
+           let source = String(data: data, encoding: .utf8) {
+            meta = readFrontmatter(source)
+        } else if isSymbolicLink(entry, fileManager: fileManager) {
+            // A symlink into a protected folder (Desktop, Documents) can be
+            // unreadable when macOS privacy access is denied. The link itself
+            // still says the skill is installed, so keep it under its folder name.
+            meta = (nil, nil)
+        } else {
+            continue
+        }
         skills.append(SkillInfo(
             dirName: dirName, name: meta.name ?? dirName, description: meta.description ?? ""
         ))
     }
     return skills
+}
+
+private func isSymbolicLink(_ url: URL, fileManager: FileManager) -> Bool {
+    let attributes = try? fileManager.attributesOfItem(atPath: url.path)
+    return attributes?[.type] as? FileAttributeType == .typeSymbolicLink
 }
 
 /// Marks tips whose user skill is gone and lists unreferenced skills as 未整理.
