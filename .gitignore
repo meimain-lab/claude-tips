@@ -1,0 +1,9 @@
+.DS_Store
+build/
+menubar/.build/
+node_modules/
+*.xcuserstate
+# Personal tips never belong in the repo; they live in ~/.claude/claude-tips/.
+tips.local.json
+# Engine-written type stubs for the pane mod.
+pane/.claude-plugin/types/
